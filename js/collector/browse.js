@@ -19,10 +19,9 @@ export async function refresh(){
 export const work=()=>st.S.filter(s=>(st.all||s.inRoute)&&!st.paid.has(key(s)));
 export const toast=t=>{const e=document.getElementById('toast');e.textContent=t;e.className='show';setTimeout(()=>e.className='',2600);};
 
-/* -------- جدول الشقق داخل العمارة -------- */
 function aptsView(a){
   const ch=a.filter(s=>st.sel.has(key(s))),ct=tot(ch),allTot=tot(a);
-  const rows = a.map(s=>{
+  const rows=a.map(s=>{
     const k=key(s),b=st.adv.get(k)||0,selected=st.sel.has(k);
     return `<tr class="apt-row ${selected?'on':''}">
       <td class="c-chk"><input type="checkbox" data-k="${k}" ${selected?'checked':''} aria-label="تحديد شقة ${s.apt}"></td>
@@ -32,14 +31,7 @@ function aptsView(a){
       <td class="c-val"><button class="val-btn" data-p="${k}" title="سداد">${money(due(s))}</button>${b?`<small class="adv">مقدم ${money(b)}</small>`:''}</td>
     </tr>`;
   }).join('');
-  const html = `
-    <div class="bh">
-      <h2>عمارة ${st.bld}</h2>
-      <label class="chk"><input type="checkbox" id="all" ${ch.length===a.length&&a.length?'checked':''}> تحديد الكل</label>
-    </div>
-    <div class="wrap">
-      <table class="apt-table"><tbody>${rows}</tbody></table>
-    </div>`;
+  const html=`<div class="bh"><h2>عمارة ${st.bld}</h2><label class="chk"><input type="checkbox" id="all" ${ch.length===a.length&&a.length?'checked':''}> تحديد الكل</label></div><div class="wrap"><table class="apt-table"><tbody>${rows}</tbody></table></div>`;
   return {html,ch,ct,allTot};
 }
 
@@ -52,9 +44,8 @@ const bar=v=>`<div class="bar">
 
 function bind(el,a,v,again){
   el.querySelectorAll('[data-k]').forEach(c=>c.onchange=()=>{c.checked?st.sel.add(c.dataset.k):st.sel.delete(c.dataset.k);again();});
-  const allCb = el.querySelector('#all');
-  if(allCb) allCb.onchange=e=>{a.forEach(s=>e.target.checked?st.sel.add(key(s)):st.sel.delete(key(s)));again();};
-  // زر الخيارات (تعديل الاسم / مقدم / طباعة / قراءة)
+  const allCb=el.querySelector('#all');
+  if(allCb)allCb.onchange=e=>{a.forEach(s=>e.target.checked?st.sel.add(key(s)):st.sel.delete(key(s)));again();};
   el.querySelectorAll('[data-n]').forEach(b=>b.onclick=async ev=>{
     ev.stopPropagation();
     const k=b.dataset.n,s=st.by.get(k);
@@ -66,7 +57,7 @@ function bind(el,a,v,again){
       openPage(c===2?'print.html':'reading.html',q);
     }
   });
-  // السداد: بالضغط على القيمة فقط + تأكيد
+  // السداد: فقط عند الضغط على القيمة
   el.querySelectorAll('[data-p]').forEach(btn=>btn.onclick=async ev=>{
     ev.stopPropagation();
     const k=btn.dataset.p,s=st.by.get(k),amt=due(s);
@@ -79,9 +70,8 @@ function bind(el,a,v,again){
     toast(`تم سداد شقة ${s.apt} (${money(amt)} جنيه)`);
     again();
   });
-  // سداد جماعي
   const p=el.querySelector('#pay');
-  if(p) p.onclick=async()=>{
+  if(p)p.onclick=async()=>{
     if(!v.ch.length)return;
     const amt=v.ct.value;
     if(!confirm(`تأكيد سداد ${v.ch.length} شقة بمبلغ ${money(amt)} جنيه؟`))return;
@@ -98,7 +88,7 @@ export async function renderHome(el){
   const y=scrollY;back(false);if(!st.pager)st.bld=null;const w=work();
   if(!st.S.length)return el.innerHTML='<div class="card empty">لا توجد بيانات بعد. من تبويب «ما تم تحصيله» اضغط «تحديث الملف».</div>';
   const secs=[...new Set(w.map(s=>s.sector))].sort(srt);
-  if(!secs.length)return el.innerHTML='<div class="card empty">لا يوجد عملاء غير مسددين في خط سيرك. ما شاء الله.</div>';
+  if(!secs.length)return el.innerHTML='<div class="card empty">لا يوجد عملاء غير مسددين في خط سيرك.</div>';
   if(!secs.includes(st.sector))st.sector=secs[0];
   const blks=[...new Set(w.filter(s=>s.sector===st.sector).map(s=>s.blk))].sort(srt);if(!blks.includes(st.blk))st.blk=blks[0];
   const rows=w.filter(s=>s.sector===st.sector&&s.blk===st.blk),g={};rows.forEach(s=>(g[s.bld]??=[]).push(s));const t=tot(rows),last=await get('lastPosition','last');
