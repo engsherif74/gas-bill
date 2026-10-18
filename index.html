@@ -14,7 +14,6 @@
 </head>
 <body>
 
-<!-- ===== الهيدر العلوي ===== -->
 <header class="top"><div>
   <button id="menuBtn" class="ico" aria-label="القائمة" hidden>⋮</button>
   <button id="back" class="ico" aria-label="رجوع" hidden>→</button>
@@ -29,10 +28,8 @@
   <span class="pill" id="net">…</span>
 </div></header>
 
-<!-- ===== القائمة المنسدلة ===== -->
 <div id="menu" class="menu" hidden></div>
 
-<!-- ===== شاشة القفل (مخفية تماماً حتى الحاجة) ===== -->
 <main id="locked">
   <section class="card empty">
     <h2>🔒 التطبيق مقفل</h2>
@@ -45,7 +42,6 @@
   </section>
 </main>
 
-<!-- ===== شاشة التشخيص (مخفية تماماً حتى الحاجة) ===== -->
 <main id="diag">
   <section class="card">
     <h2>⚠️ تعذر التحميل</h2>
@@ -58,35 +54,24 @@
   </section>
 </main>
 
-<!-- ===== شريط التحديث ===== -->
-<div id="upd" class="upd" hidden>
-  <span>📦 ملف جديد متاح</span>
-  <button class="btn sm" id="updBtn">حمّله</button>
-</div>
-
-<!-- ===== التطبيق الرئيسي ===== -->
 <main id="app" hidden>
   <section id="view"></section>
 </main>
 
-<!-- ===== شريط التنقل السفلي (3 تبويبات) ===== -->
 <nav class="tabs" id="tabs" hidden>
   <button data-t="home" class="on"><span class="ico-emoji">📋</span>التحصيل</button>
   <button data-t="ledger"><span class="ico-emoji">✅</span>ما تم تحصيله</button>
   <button data-t="search"><span class="ico-emoji">🔍</span>بحث</button>
 </nav>
 
-<!-- ===== تذييل الصفحة ===== -->
 <footer class="app-footer" id="footer" hidden>
-  <span>تطوير: <b>اسمك</b></span>
+  <span>تطوير: <b>شريف نشأت</b></span>
   <span> · </span>
   <span>الإصدار: <b>1.0.0</b></span>
 </footer>
 
-<!-- ===== الإشعارات ===== -->
 <div id="toast" role="status" aria-live="polite"></div>
 
-<!-- ===== سكربت التشخيص المبكر ===== -->
 <script>
 (function(){
   var diagEl = document.getElementById('diag');
@@ -113,7 +98,6 @@
     showDiag('Promise: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
   });
 
-  // مهلة التشخيص: 5 ثوانٍ
   setTimeout(function(){
     if (!appEl.hidden) return;
     if (lockedEl.getAttribute('data-show') === '1') return;
@@ -142,7 +126,6 @@
     })();
   };
 
-  // تحميل app.js ديناميكياً
   var s = document.createElement('script');
   s.type = 'module';
   s.src = 'js/collector/app.js';
