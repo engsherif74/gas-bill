@@ -113,7 +113,7 @@ function aptsView(a){
   return {html, ch, ct, allTot};
 }
 
-/* ===== الكارت السفلي المبسط ===== */
+/* ===== الكارت السفلي ===== */
 const bar = v => {
   const cnt = v.ch.length;
   const inv = v.ch.reduce((t,s) => t + (s.count||0), 0);
@@ -305,112 +305,87 @@ export async function renderHome(el){
   const opt = (a,v) => a.map(x => `<option ${x===v?'selected':''}>${x}</option>`).join('');
 
   let ov = null;
+
+  /* ===== شريط الأدوات: 3 أوضاع ===== */
   let html = `<div class="pick">
-    <label class="field"><span>القطاع</span>
-      <input id="secIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.sector||''}" data-next="blkIn">
-    </label>
-    <label class="field"><span>البلوك</span>
-      <input id="blkIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.blk||''}" data-next="bldIn">
-    </label>
+    <label class="field"><span>القطاع</span><select id="sSec">${opt(secs,st.sector)}</select></label>
+    <label class="field"><span>البلوك</span><select id="sBlk">${opt(blks,st.blk)}</select></label>
     <label class="field"><span>العمارة</span>
-      <input id="bldIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.open||''}" data-next="aptIn">
+      <input id="bldIn" class="num2" type="text" inputmode="numeric" maxlength="2" placeholder="—" value="${st.open||''}">
     </label>
-    <label class="field"><span>الشقة</span>
-      <input id="aptIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="" data-next="">
-    </label>
+  </div>
+  <div class="view-mode">
+    <button class="btn ghost sm" id="modeList" type="button">عرض القائمة</button>
+    <button class="btn ghost sm" id="modeOpen" type="button">فتح العمارة</button>
   </div>
   <p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p>
   <div class="blist">`;
 
-  Object.keys(g).sort(srt).forEach(b => {
-    const x = tot(g[b]);
-    const o = st.open === b;
-    let hiClass = '';
-    if (st.filter){
-      if (st.filter.kind === 'blk' && st.filter.matches.has('blk:' + st.sector + '|' + st.blk)) hiClass = 'hi';
-      if (st.filter.kind === 'bld' && st.filter.matches.has('bld:' + st.sector + '|' + st.blk + '|' + b)) hiClass = 'hi';
-      if (st.filter.kind === 'apt'){
-        const hasMatch = g[b].some(s => st.filter.matches.has('apt:' + key(s)));
-        if (hasMatch) hiClass = 'hi';
-      }
-    }
-    const cells = `<b>عمارة ${b}</b><span>${x.n} شقة</span><span>${x.count} فاتورة</span><strong>${money(x.value)}</strong>`;
-    html += `<div class="brow prow ${o?'open':''} ${hiClass}" data-b="${b}" role="button" tabindex="0">${cells}</div>`;
-    if (o){
-      st.bld = b;
-      const aa = g[b].sort((p,q) => srt(p.apt, q.apt));
-      ov = {a: aa, v: aptsView(aa)};
-      html += `<div class="card apts">${ov.v.html}</div>`;
-    }
-  });
-  el.innerHTML = html + '</div>' + (ov ? bar(ov.v) : '');
-
-  /* ===== ربط مربعات النص ===== */
-  const secIn = el.querySelector('#secIn');
-  const blkIn = el.querySelector('#blkIn');
-  const bldIn = el.querySelector('#bldIn');
-  const aptIn = el.querySelector('#aptIn');
-
-  function autoNext(inp){
-    inp.addEventListener('input', () => {
-      const v = String(inp.value || '').replace(/\D/g, '').slice(0, 2);
-      if (inp.value !== v) inp.value = v;
-      if (v.length === 2){
-        const next = inp.dataset.next;
-        if (next){
-          const n = el.querySelector('#' + next);
-          if (n){ n.focus(); n.select?.(); }
+  /* ===== إذا كان وضع "فتح العمارة" مفعّل ===== */
+  if (st.open && g[st.open]){
+    st.bld = st.open;
+    const aa = g[st.open].sort((p,q) => srt(p.apt, q.apt));
+    ov = {a: aa, v: aptsView(aa)};
+    html += `<div class="card apts">${ov.v.html}</div>`;
+  } else {
+    Object.keys(g).sort(srt).forEach(b => {
+      const x = tot(g[b]);
+      const o = st.open === b;
+      let hiClass = '';
+      if (st.filter){
+        if (st.filter.kind === 'blk' && st.filter.matches.has('blk:' + st.sector + '|' + st.blk)) hiClass = 'hi';
+        if (st.filter.kind === 'bld' && st.filter.matches.has('bld:' + st.sector + '|' + st.blk + '|' + b)) hiClass = 'hi';
+        if (st.filter.kind === 'apt'){
+          const hasMatch = g[b].some(s => st.filter.matches.has('apt:' + key(s)));
+          if (hasMatch) hiClass = 'hi';
         }
+      }
+      const cells = `<b>عمارة ${b}</b><span>${x.n} شقة</span><span>${x.count} فاتورة</span><strong>${money(x.value)}</strong>`;
+      html += `<div class="brow prow ${o?'open':''} ${hiClass}" data-b="${b}" role="button" tabindex="0">${cells}</div>`;
+      if (o){
+        st.bld = b;
+        const aa = g[b].sort((p,q) => srt(p.apt, q.apt));
+        ov = {a: aa, v: aptsView(aa)};
+        html += `<div class="card apts">${ov.v.html}</div>`;
       }
     });
   }
-  autoNext(secIn); autoNext(blkIn); autoNext(bldIn); autoNext(aptIn);
 
-  secIn.addEventListener('input', () => {
-    if (secIn.value.length === 2){
-      st.sector = secIn.value;
-      st.open = null;
-      setTimeout(() => renderHome(el), 150);
+  el.innerHTML = html + '</div>' + (ov ? bar(ov.v) : '');
+
+  /* ===== ربط الأحداث ===== */
+  el.querySelector('#sSec').onchange = e => { st.sector = e.target.value; st.open = null; renderHome(el); };
+  el.querySelector('#sBlk').onchange = e => { st.blk = e.target.value; st.open = null; renderHome(el); };
+
+  const bldIn = el.querySelector('#bldIn');
+
+  // وضع "فتح العمارة"
+  el.querySelector('#modeOpen').onclick = () => {
+    const v = String(bldIn.value || '').trim();
+    if (!v){ toast('أدخل رقم العمارة أولاً'); return; }
+    if (g[v]){ st.open = v; st.bld = v; renderHome(el); }
+    else {
+      const inPaid = st.S.some(s => s.sector===st.sector && s.blk===st.blk && s.bld===v && st.paid.has(key(s)));
+      if (inPaid) toast('العمارة مسددة بالكامل');
+      else toast('لا توجد في السجلات');
     }
-  });
-  blkIn.addEventListener('input', () => {
-    if (blkIn.value.length === 2){
-      st.blk = blkIn.value;
-      st.open = null;
-      setTimeout(() => renderHome(el), 150);
-    }
-  });
+  };
+
+  // وضع "عرض القائمة"
+  el.querySelector('#modeList').onclick = () => {
+    st.open = null;
+    bldIn.value = '';
+    renderHome(el);
+  };
+
   bldIn.addEventListener('input', () => {
     if (bldIn.value.length === 2){
       const v = bldIn.value;
-      if (g[v]){
-        st.open = v;
-        st.bld = v;
-        setTimeout(() => renderHome(el), 150);
-      } else {
+      if (g[v]){ st.open = v; st.bld = v; renderHome(el); }
+      else {
         const inPaid = st.S.some(s => s.sector===st.sector && s.blk===st.blk && s.bld===v && st.paid.has(key(s)));
         if (inPaid) toast('العمارة مسددة بالكامل');
         else toast('لا توجد في السجلات');
-      }
-    }
-  });
-  aptIn.addEventListener('input', () => {
-    if (aptIn.value.length === 2 && st.open){
-      const apt = aptIn.value;
-      const k = [null, st.sector, st.blk, st.open, apt].join('|');
-      const found = st.by.get(k);
-      if (found){
-        st.sel.add(k);
-        // فتح العمارة والتمرير إليها
-        const card = el.querySelector(`[data-card="${k}"]`);
-        if (card){
-          card.scrollIntoView({behavior:'smooth', block:'center'});
-          card.classList.add('pulse');
-          setTimeout(() => card.classList.remove('pulse'), 1500);
-        }
-        renderHome(el);
-      } else {
-        toast('الشقة غير موجودة');
       }
     }
   });

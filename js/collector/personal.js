@@ -4,7 +4,7 @@ import {pack, unpack} from '../core/crypto.js';
 import {st, esc, toast, refresh} from './browse.js';
 import {ldate, keyOf as key, personalSettle} from './ledger.js';
 
-/* ====== نافذة اختيار ====== */
+/* ===== نافذة اختيار ===== */
 export const choose = (title, opts, cancel = true) => new Promise(res => {
   const d = document.createElement('dialog');
   d.innerHTML = `<div>${title}</div>` +
@@ -22,7 +22,7 @@ export const choose = (title, opts, cancel = true) => new Promise(res => {
   d.showModal();
 });
 
-/* ====== مشاركة الملف ====== */
+/* ===== مشاركة الملف ===== */
 export async function sendFile(file){
   if (navigator.canShare && navigator.canShare({files:[file]})){
     try{ await navigator.share({files:[file], title:file.name}); return 'shared'; }catch{}
@@ -36,22 +36,22 @@ export async function sendFile(file){
   return 'downloaded';
 }
 
-/* ====== أدوات ====== */
+/* ===== أدوات ===== */
 const num = s => +String(s || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 
-/* ====== مربع نصي رقمين + انتقال تلقائي ====== */
+/* ===== مربع نصي رقمين + انتقال تلقائي ===== */
 const num2Input = (id, nextId, placeholder = '') =>
   `<input id="${id}" class="num2" type="text" inputmode="numeric" maxlength="2" pattern="[0-9]*" placeholder="${placeholder}" ${nextId ? `data-next="${nextId}"` : ''}>`;
 
-/* ====== ربط الانتقال التلقائي ====== */
+/* ===== ربط الانتقال التلقائي ===== */
 function wireAutoNext(scope){
   scope.querySelectorAll('[data-next]').forEach(inp => {
     inp.addEventListener('input', () => {
       const v = String(inp.value || '').replace(/\D/g, '').slice(0, 2);
       if (inp.value !== v) inp.value = v;
       if (v.length === 2){
-        const next = scope.querySelector(inp.dataset.next);
+        const next = scope.querySelector('#' + inp.dataset.next);
         if (next){
           if (next.tagName === 'INPUT'){ next.focus(); next.select?.(); }
         }
@@ -60,10 +60,10 @@ function wireAutoNext(scope){
   });
 }
 
-/* ====== آخر حذف ====== */
+/* ===== آخر حذف ===== */
 let lastDel = null;
 
-/* ====== البطاقات الشخصية ====== */
+/* ===== البطاقات الشخصية ===== */
 export async function personalCards(el, entries, again){
   const D = (await all('personalDealings')).sort((a,b) => a.date < b.date ? 1 : -1);
   const P = (await all('personalPayments')).sort((a,b) => a.payDate < b.payDate ? 1 : -1);
@@ -147,7 +147,7 @@ export async function personalCards(el, entries, again){
           <label class="field"><span>القطاع</span>${num2Input('dSec', 'dBlk', '—')}</label>
           <label class="field"><span>البلوك</span>${num2Input('dBlk', 'dBld', '—')}</label>
           <label class="field"><span>العمارة</span>${num2Input('dBld', 'dApt', '—')}</label>
-          <label class="field"><span>الشقة</span>${num2Input('dApt', 'dName', '—')}</label>
+          <label class="field"><span>الشقة</span>${num2Input('dApt', 'dAmount', '—')}</label>
         </div>
         <label class="field"><span>اسم العميل (يُستدعى تلقائياً)</span><input id="dName" type="text" placeholder="—"></label>
         <label class="field"><span>النوع</span>
@@ -173,6 +173,7 @@ export async function personalCards(el, entries, again){
     const dBld = dlg.querySelector('#dBld');
     const dApt = dlg.querySelector('#dApt');
     const dName = dlg.querySelector('#dName');
+    const dAmount = dlg.querySelector('#dAmount');
 
     // استدعاء الاسم عند إدخال الشقة
     const lookupName = () => {
@@ -203,7 +204,7 @@ export async function personalCards(el, entries, again){
       const apt = String(dApt.value || '').trim();
       const name = String(dName.value || '').trim();
       const dir = dlg.querySelector('#dDir').value;
-      const a = num(dlg.querySelector('#dAmount').value);
+      const a = num(dAmount.value);
       const note = String(dlg.querySelector('#dNote').value || '').trim();
 
       if (!sec || !blk || !bld || !apt){ alert('أدخل القطاع والبلوك والعمارة والشقة'); return; }
@@ -318,10 +319,8 @@ export async function personalCards(el, entries, again){
       if (val <= 0){ alert('العميل ليس عليه مديونية'); return; }
       if (!confirm(`سداد شخصي كامل لـ ${foundClient.name || 'بدون اسم'} بمبلغ ${money(val)} جنيه؟`)) return;
 
-      // السداد الشخصي
       await personalSettle(st.no, foundClient, st.adv);
 
-      // تسجيل في الجدول الشخصي
       const id = rid();
       await put('personalPayments', id, {
         id,
