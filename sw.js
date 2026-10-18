@@ -1,10 +1,10 @@
-const CACHE = 'collect-v17';
+const CACHE = 'collect-v18';
 const SHELL = [
   './','index.html','login.html','manifest.json',
   'css/base.css','css/components.css','css/collector.css',
   'js/core/config.js','js/core/compress.js','js/core/crypto.js','js/core/db.js','js/core/normalize.js','js/core/utils.js',
   'js/collector/app.js','js/collector/unlock.js','js/collector/fileLoader.js','js/collector/browse.js',
-  'js/collector/payment.js','js/collector/ledger.js','js/collector/lock.js',
+  'js/collector/payment.js','js/collector/ledger.js','js/collector/lock.js','js/collector/monthly.js',
   'pages/print.html','pages/reading.html',
   'js/collector/search.js','js/collector/personal.js','js/collector/export.js','js/collector/reconcile.js',
   'js/collector/updateCheck.js','js/collector/buttons.js','js/collector/details.js','js/collector/names.js',
