@@ -3,7 +3,7 @@
 <head>
 <link rel="manifest" href="manifest.json">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0f766e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="حاسبة الغاز">
@@ -17,6 +17,32 @@ body{
   color:#0f172a;padding-bottom:30px;min-height:100vh;
   -webkit-font-smoothing:antialiased;
 }
+
+/* زر الإغلاق */
+.close-btn {
+  position: fixed;
+  top: 15px;
+  left: 15px; /* في اليسار لأن الاتجاه RTL، أو يمكنك تغييره لليمين */
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s;
+}
+.close-btn:active {
+  background: rgba(0, 0, 0, 0.6);
+  transform: scale(0.95);
+}
+
 header{
   background:linear-gradient(135deg,#0f766e 0%,#14b8a6 60%,#2dd4bf 100%);
   color:#fff;padding:22px 16px 26px;text-align:center;
@@ -351,6 +377,9 @@ button:active{transform:scale(.97)}
 </head>
 <body>
 
+<!-- زر الإغلاق / الرجوع -->
+<button class="close-btn" onclick="closeCalculator()" title="رجوع">✕</button>
+
 <header>
   <h1 id="hdrTitle">🔥 حاسبة فاتورة الغاز</h1>
   <div class="sub" id="currentMonth"></div>
@@ -402,6 +431,52 @@ button:active{transform:scale(.97)}
 </button>
 
 <script>
+/* ============================================================
+   دالة الإغلاق والعودة للتطبيق
+============================================================ */
+function closeCalculator() {
+  // إذا كانت الحاسبة مفتوحة داخل iframe في التطبيق
+  if (window.parent && window.parent !== window) {
+    // نحاول إغلاق النافذة المنبثقة (dialog) في التطبيق الأم
+    try {
+      window.parent.document.querySelectorAll('dialog.viewer').forEach(d => {
+        d.close();
+        d.remove();
+      });
+    } catch(e) {
+      console.warn('Could not close parent dialog', e);
+    }
+  } else {
+    // إذا كانت مفتوحة في نافذة مستقلة (متصفح)
+    window.history.back();
+    // أو يمكنك استخدام: window.close(); (لكن المتصفحات تمنع ذلك أحياناً)
+  }
+}
+
+// دعم إيماءة السحب (Swipe) للرجوع
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', e => {
+  touchStartX = e.changedTouches[0].screenX;
+  touchStartY = e.changedTouches[0].screenY;
+}, { passive: true });
+
+document.addEventListener('touchend', e => {
+  const touchEndX = e.changedTouches[0].screenX;
+  const touchEndY = e.changedTouches[0].screenY;
+  const diffX = touchEndX - touchStartX;
+  const diffY = touchEndY - touchStartY;
+
+  // إذا كانت الحركة أفقية (يمين) وأكثر من 100 بكسل، والحركة الرأسية قليلة
+  if (Math.abs(diffX) > 100 && Math.abs(diffY) < 50) {
+    // في واجهة RTL، السحب لليمين يعني الرجوع
+    if (diffX > 0) {
+      closeCalculator();
+    }
+  }
+}, { passive: true });
+
 /* ============================================================
    المتغيرات العامة
 ============================================================ */
