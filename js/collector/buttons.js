@@ -3,7 +3,14 @@ import {isOn, enable, disable, verify} from './lock.js';
 import {openExportDialog} from './exportExcel.js';
 
 const ok = f => /^https:\/\//.test(f) || /^[\w.-]+\.html?$/.test(f);
-const url = f => /^https:/.test(f) ? f : 'pages/' + f;
+
+// التعديل هنا: إذا كان الملف gas_Calculator.html يفتح من الروت، وإلا من مجلد pages
+const url = f => {
+  if (/^https:/.test(f)) return f;
+  if (f.startsWith('gas_') || f === 'index.html') return f;
+  return 'pages/' + f;
+};
+
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ===== فتح صفحة داخل iframe ===== */
@@ -42,12 +49,15 @@ export async function renderMenu(){
 
   html += '<hr>';
 
+  // زر حساب الفاتورة (الحاسبة)
+  html += `<button type="button" data-calc="1">🧮 حساب الفاتورة</button>`;
+  
   // تصدير Excel
   html += `<button type="button" data-export="1">📊 تصدير Excel (غير المسددين)</button>`;
 
   html += '<hr>';
 
-  // الواجهات الإضافية
+  // الواجهات الإضافية من الأدمن
   btns.forEach(x => {
     html += `<button type="button" data-f="${esc(x.file)}">${esc(x.name)}</button>`;
   });
@@ -77,13 +87,19 @@ export async function renderMenu(){
     renderMenu();
   };
 
+  // زر الحاسبة
+  m.querySelector('[data-calc]').onclick = () => {
+    m.hidden = true;
+    openPage('gas_Calculator.html');
+  };
+
   // تصدير Excel
   m.querySelector('[data-export]').onclick = () => {
     m.hidden = true;
     openExportDialog();
   };
 
-  // الواجهات الإضافية
+  // الواجهات الإضافية من الأدمن
   m.querySelectorAll('[data-f]').forEach(btn => {
     btn.onclick = () => { m.hidden = true; openPage(btn.dataset.f); };
   });
