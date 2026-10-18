@@ -43,28 +43,14 @@
     {
       "name": "تفاصيل التحصيل",
       "short_name": "التفاصيل",
-      "description": "عرض تقارير التحصيل",
       "url": "/collection-app/index.html#details",
-      "icons": [
-        {
-          "src": "/collection-app/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
+      "icons": [{"src": "/collection-app/icon-192.png", "sizes": "192x192", "type": "image/png"}]
     },
     {
       "name": "حاسبة الغاز",
       "short_name": "الحاسبة",
-      "description": "حاسبة فاتورة الغاز",
       "url": "/collection-app/calculator.html",
-      "icons": [
-        {
-          "src": "/collection-app/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
+      "icons": [{"src": "/collection-app/icon-192.png", "sizes": "192x192", "type": "image/png"}]
     }
   ]
 }
