@@ -208,27 +208,6 @@ button:active{transform:scale(.97)}
 }
 
 /* ============================================================
-   Developer Badge - في أسفل الصفحة
-============================================================ */
-.developer-badge-container{
-  display:flex;
-  justify-content:center;
-  margin:24px 12px 14px;
-}
-.developer-badge{
-  background:linear-gradient(135deg,#f0fdf4 0%,#ccfbf1 100%);
-  border:1.5px solid #5eead4;border-radius:18px;padding:16px;
-  text-align:center;box-shadow:0 4px 14px rgba(15,118,110,.08);
-  position:relative;overflow:hidden;
-  max-width:520px;
-  width:100%;
-}
-.developer-badge::before{content:'👨‍💻';position:absolute;top:-12px;left:-12px;font-size:60px;opacity:.06}
-.developer-badge .dev-title{font-size:12px;color:#0f766e;font-weight:700;margin-bottom:5px;text-transform:uppercase}
-.developer-badge .dev-name{font-size:15px;color:#134e4a;font-weight:800;margin-bottom:8px}
-.developer-badge .dev-desc{font-size:12px;color:#334155;line-height:1.7}
-
-/* ============================================================
    Modals
 ============================================================ */
 .modal-overlay{
@@ -422,15 +401,6 @@ button:active{transform:scale(.97)}
   <span id="currentPricesBtnLabel">💰 الأسعار المطبقة حالياً</span>
 </button>
 
-<!-- بطاقة إعداد وتطوير - في أسفل الصفحة -->
-<div class="developer-badge-container">
-  <div class="developer-badge" id="developerBadge">
-    <div class="dev-title" id="devTitle">إعداد وتطوير</div>
-    <div class="dev-name" id="devName">شريف محمد نشأت محمد</div>
-    <div class="dev-desc" id="devDesc">تطبيق ذكي ومتقن دقيق الحسابات، مصمم خصيصاً ليقدم تجربة سهلة وسريعة تخدم كلًا من المحصل والعميل بكل شفافية وموثوقية.</div>
-  </div>
-</div>
-
 <script>
 /* ============================================================
    المتغيرات العامة
@@ -472,12 +442,6 @@ function loadFees(){
     const v = localStorage.getItem(FEES_KEY);
     return v !== null ? Number(v) : 18;
   }catch(e){ return 18; }
-}
-function saveAll(){
-  try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(periods));
-    localStorage.setItem(FEES_KEY, String(fees));
-  }catch(e){}
 }
 
 /* ============================================================
@@ -524,11 +488,9 @@ function updateConsumptionFromReadings(){
 /* ============================================================
    خريطة أسماء الشرائح
 ============================================================ */
-const TIER_NAME_MAP_REVERSE = {}; // لم نعد بحاجة للخريطة الإنجليزية
 const ArabicPeriodNames = ['', 'الأولى', 'الثانية', 'الثالثة', 'الرابعة', 'الخامسة', 'السادسة', 'السابعة', 'الثامنة', 'التاسعة', 'العاشرة'];
 
 function getTierDisplayName(name){
-  if (TIER_NAME_MAP_REVERSE[name]) return TIER_NAME_MAP_REVERSE[name];
   const n = parseInt(name);
   if (!isNaN(n) && n >= 1 && n <= 10) return ArabicPeriodNames[n];
   return name;
@@ -1079,19 +1041,6 @@ function updateHeader(){
 }
 
 /* ============================================================
-   تحديث بطاقة المطور حسب اللغة
-============================================================ */
-function updateDeveloperBadge(){
-  const titleEl = document.getElementById('devTitle');
-  const nameEl = document.getElementById('devName');
-  const descEl = document.getElementById('devDesc');
-
-  titleEl.textContent = 'إعداد وتطوير';
-  nameEl.textContent = 'شريف محمد نشأت محمد';
-  descEl.textContent = 'تطبيق ذكي ومتقن دقيق الحسابات، مصمم خصيصاً ليقدم تجربة سهلة وسريعة تخدم كلًا من المحصل والعميل بكل شفافية وموثوقية.';
-}
-
-/* ============================================================
    ربط الأحداث
 ============================================================ */
 ['months', 'consumption', 'prevReading', 'currReading'].forEach(id=>{
@@ -1110,7 +1059,6 @@ function updateDeveloperBadge(){
   periods = loadPeriods();
   fees = loadFees();
   updateHeader();
-  updateDeveloperBadge();
   inputMode = null;
 })();
 </script>
