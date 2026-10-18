@@ -5,7 +5,7 @@ import {totals} from './payment.js';
 import {openPage} from './buttons.js';
 import {getManual,saveManual} from './names.js';
 import {choose} from './personal.js';
-import {monthsFor,monthOptions} from './monthly.js';
+import {monthOptions} from './monthly.js';
 
 export const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -21,16 +21,25 @@ const num = s => +String(s||'').replace(/[٠-٩]/g, d=>'٠١٢٣٤٥٦٧٨٩'.in
 const due = s => Math.max(0, s.value - (st.adv.get(key(s))||0));
 const tot = a => totals(a, due);
 
-/* إصلاح: paid = المشتركين الذين ليس لديهم أي مديونية (value=0 و count=0) */
+/* ====== إصلاح: paid = من سُدّد بالكامل (pay غير جزئي) ولم يبقَ له شيء ====== */
 export async function refresh(){
   const mn = await getManual();
   st.S = await all('subscribers');
   st.S.forEach(s=>{ const n = mn[key(s)]; if (n) s.name = n; });
   st.by = new Map(st.S.map(s=>[key(s), s]));
-  // paid = من ليس لديه مديونية (سُدّد بالكامل)
-  st.paid = new Set(
-    st.S.filter(s => (s.value || 0) <= 0 && (s.count || 0) <= 0).map(s => key(s))
+  const e = await list();
+  
+  // من عليه عمليات pay كاملة (غير جزئية)
+  const fullPaid = new Set(e.filter(x => x.type === 'pay' && !x.partial).map(x => x.key));
+  
+  // من ما زال لديه مديونية في subscribers (بسبب سداد جزئي أو لم يُسدد)
+  const stillDue = new Set(
+    st.S.filter(s => (s.value || 0) > 0 || (s.count || 0) > 0).map(s => key(s))
   );
+  
+  // paid = من سُدّد بالكامل ولم يبقَ له شيء
+  st.paid = new Set([...fullPaid].filter(k => !stillDue.has(k)));
+  
   st.adv = new Map((await all('advance')).map(v=>[v.key, v.balance]));
 }
 
@@ -101,7 +110,7 @@ const bar = v => `<div class="bar">
 </div>`;
 
 /* ====== نافذة السداد الجزئي ====== */
-function partialDialog(s, k){
+function partialDialog(s){
   return new Promise(resolve=>{
     const d = document.createElement('dialog');
     d.className = 'partial-dialog';
@@ -199,7 +208,7 @@ function bind(el, a, v, again){
         }
       }
       if (act === 'partial'){
-        const res = await partialDialog(s, k);
+        const res = await partialDialog(s);
         if (res){
           await partialPay(st.no, s, res, st.adv);
           await refresh();
@@ -255,10 +264,28 @@ export async function renderHome(el){
   const hasLast = last && w.some(s=>s.sector===last.sector && s.blk===last.blk && s.bld===last.bld);
   const opt = (a,v)=>a.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
   let ov = null;
+  
+  // قائمة العمارات مرتبة
+  const blds = Object.keys(g).sort(srt);
+  const curIdx = blds.indexOf(String(st.bld));
+  
+  // أزرار السابق/التالي في وضع الصفحات
+  let pagerNav = '';
+  if (st.pager){
+    pagerNav = `<div class="pager-nav">
+      <button class="btn ghost sm" id="prevBld" ${curIdx <= 0 ? 'disabled' : ''}>→ السابق</button>
+      <input id="bldJump" type="number" placeholder="عمارة" value="${st.open || ''}" min="1" class="bld-jump">
+      <button class="btn ghost sm" id="nextBld" ${curIdx < 0 || curIdx >= blds.length - 1 ? 'disabled' : ''}>التالي ←</button>
+    </div>`;
+  }
+  
   let html = `<div class="pick"><label class="field"><span>القطاع</span><select id="sSec">${opt(secs,st.sector)}</select></label><label class="field"><span>البلوك</span><select id="sBlk">${opt(blks,st.blk)}</select></label></div>
     <div class="tools"><button class="btn ghost sm" id="pg">${st.pager?'إيقاف عرض الصفحات':'عرض كصفحات'}</button>
     ${hasLast?`<button class="btn sm" id="rs">استكمال (${last.sector}-${last.blk}-${last.bld})</button>`:''}
-    </div><p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p><div class="blist">`;
+    </div>
+    ${pagerNav}
+    <p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p><div class="blist">`;
+  
   Object.keys(g).sort(srt).forEach(b=>{
     const x = tot(g[b]), o = st.pager && st.open === b;
     const cells = `<b>عمارة ${b}</b><span>${x.n} شقة</span><span>${x.count} فاتورة</span><strong>${money(x.value)}</strong>`;
@@ -275,18 +302,39 @@ export async function renderHome(el){
     }
   });
   el.innerHTML = html + '</div>' + (ov ? bar(ov.v) : '');
+  
   el.querySelector('#sSec').onchange = e=>{ st.sector = e.target.value; st.open = null; renderHome(el); };
   el.querySelector('#sBlk').onchange = e=>{ st.blk = e.target.value; st.open = null; renderHome(el); };
   el.querySelector('#pg').onclick = ()=>{ st.pager = !st.pager; st.open = null; st.sel.clear(); renderHome(el); };
+  
   const rs = el.querySelector('#rs');
   if (rs) rs.onclick = ()=>{
     st.sector = last.sector; st.blk = last.blk; st.sel.clear();
     if (st.pager){ st.open = last.bld; renderHome(el); }
     else { st.bld = last.bld; history.pushState({v:'bld'}, ''); renderBuilding(el); }
   };
+  
+  // أزرار السابق/التالي
+  const prevBtn = el.querySelector('#prevBld');
+  if (prevBtn) prevBtn.onclick = ()=>{
+    if (curIdx > 0){ st.open = blds[curIdx - 1]; st.bld = st.open; renderHome(el); }
+  };
+  const nextBtn = el.querySelector('#nextBld');
+  if (nextBtn) nextBtn.onclick = ()=>{
+    if (curIdx >= 0 && curIdx < blds.length - 1){ st.open = blds[curIdx + 1]; st.bld = st.open; renderHome(el); }
+  };
+  
+  // الانتقال لعمارة محددة
+  const jumpIn = el.querySelector('#bldJump');
+  if (jumpIn) jumpIn.onchange = ()=>{
+    const val = String(jumpIn.value).trim();
+    if (blds.includes(val)){ st.open = val; st.bld = val; renderHome(el); }
+    else toast('عمارة غير موجودة في هذا البلوك');
+  };
+  
   el.querySelectorAll('[data-b]').forEach(b=>b.onclick = ()=>{
     st.sel.clear();
-    if (st.pager){ st.open = st.open===b.dataset.b?null:b.dataset.b; renderHome(el); }
+    if (st.pager){ st.open = st.open===b.dataset.b?null:b.dataset.b; st.bld = st.open; renderHome(el); }
     else { st.bld = b.dataset.b; history.pushState({v:'bld'}, ''); renderBuilding(el); }
   });
   if (ov) bind(el, ov.a, ov.v, ()=>renderHome(el));
@@ -311,6 +359,7 @@ export async function renderLedger(el, reload, exp){
   <div class="ledger-list">` +
     (e.map(x=>{
       const s = st.by.get(x.key) || {};
+      const amt = x.amount || 0;
       return `<div class="led-row">
         <div class="led-main">
           <span class="led-apt">${s.apt || '?'}</span>
@@ -318,7 +367,7 @@ export async function renderLedger(el, reload, exp){
             <div class="led-name">${esc(s.name || 'بدون اسم')}${x.type==='advance'?' <em class="tag">مقدم</em>':''}${x.partial?' <em class="tag">جزئي</em>':''}</div>
             <div class="led-meta">قطاع ${s.sector||''} · بلوك ${s.blk||''} · عمارة ${s.bld||''} · ${new Date(x.time).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'})}</div>
           </div>
-          <div class="led-amount">${money(x.amount)}</div>
+          <div class="led-amount">${money(amt)}</div>
           <div class="led-menu-wrap">
             <button class="menu-dots" data-m="${x.id}">⋮</button>
             <div class="menu-pop" data-pop="${x.id}" hidden>

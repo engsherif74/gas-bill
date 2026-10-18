@@ -7,17 +7,18 @@ export const canUndo = e => ldate(e.time) === ldate(new Date());
 export const list = async () => (await all('ledger')).sort((a,b) => a.time < b.time ? 1 : -1);
 
 export async function pay(no, subs, adv){
-  const time = new Date().toISOString(), L = [], A = [];
+  const time = new Date().toISOString(), L = [], A = [], U = [];
   for (const s of subs){
     const k = keyOf(s), b = adv.get(k) || 0, use = Math.min(b, s.value), id = uid(no);
     L.push([id, {id, no, type:'pay', key:k, amount:s.value - use, due:s.value, fromAdvance:use, out:!s.inRoute, count:s.count, time, status:'temp'}]);
     if (use) A.push([k, {key:k, balance:b - use}]);
+    U.push([k, {...s, value:0, count:0}]);
   }
   await putMany('ledger', L);
   if (A.length) await putMany('advance', A);
+  await putMany('subscribers', U);
 }
 
-/* ====== سداد جزئي ====== */
 export async function partialPay(no, s, {count, amount}, adv){
   const k = keyOf(s);
   const b = adv.get(k) || 0;
