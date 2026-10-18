@@ -14,9 +14,9 @@ import {exportArchive} from './export.js';
 const $=id=>document.getElementById(id),view=$('view');
 let tab='home';
 const R={home:()=>renderHome(view),ledger:()=>renderLedger(view,reload,doExport),search:()=>renderSearch(view),archive:()=>renderArchive(view),details:()=>renderDetails(view,()=>show('home'))};
-const show=t=>{tab=t;st.bld=null;st.all=false;$('back').hidden=true;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));R[t]();};
+const show=t=>{tab=t;st.bld=null;st.all=false;$('back').hidden=true;document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));try{R[t]();}catch(e){console.error(e);toast('خطأ: '+e.message);}};
 
-async function doExport(){try{const a=await get('meta','auth');const r=await exportArchive(a);toast(r.n?`جُهّز ${r.n} عملية: ${r.name}`:'لا جديد للإرسال');}catch(e){toast(e.message);}}
+async function doExport(){try{const a=await get('meta','auth');const r=await exportArchive(a);toast(r.n?`جُهّز ${r.n} عملية`:'لا جديد');}catch(e){toast(e.message);}}
 
 async function reload(){
   try{
@@ -25,86 +25,62 @@ async function reload(){
     await loadFiles(a,()=>{},async n=>{
       const r=await reconcile(st.S,n.pairs,f?.cycle,n.full.cycle);
       await put('previousFile','prev',{cycle:f?.cycle,subs:st.S});
-      if(r.other.length){
-        await choose(`سيتحول ${r.other.length} عميل إلى مسدد. هل تتابع؟`,['موافق'],false);
-        await putMany('otherSource',r.other.map(o=>[o.id,o]));
-      }
+      if(r.other.length){await choose(`سيتحول ${r.other.length} عميل إلى مسدد. هل تتابع؟`,['موافق'],false);await putMany('otherSource',r.other.map(o=>[o.id,o]));}
     });
-    await refresh();
-    $('upd').hidden=true;
-    toast('تم تحديث الملف');
-    const f2=await get('meta','file');
-    st.cycle=f2.cycle;
-    renderMenu();
-    $('who').textContent=`${a.name} · إصدار ${f2.cycle}`;
-    show(tab);
-  }catch(e){toast(e.message);console.error(e);}
+    await refresh();$('upd').hidden=true;toast('تم تحديث الملف');
+    const f2=await get('meta','file');st.cycle=f2.cycle;renderMenu();
+    $('who').textContent=`${a.name} · إصدار ${f2.cycle}`;show(tab);
+  }catch(e){toast('خطأ: '+e.message);console.error(e);}
 }
 
-let unlocked=false,hiddenAt=0;
+let unlocked=false,hiddenAt=0,booted=false;
 
 function showLogin(){
-  ['app','locked','tabs'].forEach(i=>{if($(i))$(i).hidden=true;});
-  $('login').hidden=false;
-  $('who').textContent='تسجيل الدخول';
+  ['app','locked','tabs','diag'].forEach(i=>{if($(i))$(i).hidden=true;});
+  $('login').hidden=false;$('who').textContent='تسجيل الدخول';
   if($('menuBtn'))$('menuBtn').hidden=true;
   $('no').value=localStorage.getItem('lastNo')||'';
 }
 
 function showLocked(){
-  ['login','app','tabs'].forEach(i=>{if($(i))$(i).hidden=true;});
-  $('locked').hidden=false;
-  tryUnlock();
+  ['login','app','tabs','diag'].forEach(i=>{if($(i))$(i).hidden=true;});
+  $('locked').hidden=false;tryUnlock();
 }
 
 async function tryUnlock(){
   $('lmsg').textContent='';
-  try{
-    await verify();
-    unlocked=true;
-    $('locked').hidden=true;
-    await boot();
-  }catch{
-    $('lmsg').textContent='لم يتم التحقق. اضغط «فتح» وحاول مرة أخرى.';
-  }
+  try{await verify();unlocked=true;$('locked').hidden=true;await boot();}
+  catch(e){$('lmsg').textContent='لم يتم التحقق. اضغط «فتح» وحاول مرة أخرى.';console.warn(e);}
 }
 
 async function tryEnableLock(){
-  // لا تُعلق التنفيذ: لا تستخدم confirm هنا، فقط فعّل بهدوء إن أمكن
   try{
     if(await isOn())return;
     if(!(await supported()))return;
-    // تأجيل السؤال حتى لا يعطل boot
     setTimeout(async()=>{
-      try{
-        if(confirm('تفعيل فتح التطبيق ببصمة أو نقش أو كلمة مرور الجهاز؟')){
-          await enable();
-          alert('تم تفعيل القفل.');
-        }
-      }catch(e){console.warn(e);}
-    }, 500);
+      try{if(confirm('تفعيل فتح التطبيق ببصمة أو نقش؟')){await enable();alert('تم التفعيل.');}}
+      catch(e){console.warn(e);}
+    },800);
   }catch(e){console.warn(e);}
 }
 
 async function boot(){
+  if(booted)return;
   try{
-    const a=await get('meta','auth');
-    const f=await get('meta','file');
+    const a=await get('meta','auth'),f=await get('meta','file');
+    console.log('[boot] auth=',!!a,'file=',!!f);
     if(!a||!f){showLogin();return;}
     if(!unlocked&&await isOn()){showLocked();return;}
-    st.no=a.no;st.cycle=f.cycle;st.who=a.name;
+    booted=true;st.no=a.no;st.cycle=f.cycle;st.who=a.name;
     $('who').textContent=`${a.name} · إصدار ${f.cycle}`;
-    $('login').hidden=true;$('locked').hidden=true;
+    $('login').hidden=true;$('locked').hidden=true;$('diag').hidden=true;
     if($('menuBtn'))$('menuBtn').hidden=false;
     $('app').hidden=false;$('tabs').hidden=false;
-    try{ renderMenu(); }catch(e){console.warn('menu',e);}
-    try{ await refresh(); }catch(e){console.warn('refresh',e);}
-    try{ show('home'); }catch(e){console.warn('show',e);}
-    check(()=>{$('upd').hidden=false;});
-  }catch(e){
-    console.error('boot',e);
-    $('who').textContent='خطأ: '+e.message;
-  }
+    try{renderMenu();}catch(e){console.warn('menu',e);}
+    try{await refresh();}catch(e){console.warn('refresh',e);}
+    try{show('home');}catch(e){console.warn('show',e);}
+    try{check(()=>{$('upd').hidden=false;});}catch(e){console.warn('check',e);}
+  }catch(e){console.error('boot',e);$('who').textContent='خطأ: '+e.message;showLogin();}
 }
 
 $('go').onclick=async()=>{
@@ -114,29 +90,24 @@ $('go').onclick=async()=>{
     localStorage.setItem('lastNo',a.no);
     const n=await loadFiles(a,t=>m.textContent=t);
     m.textContent=`تم تحميل ${n} عميل`;
-    tryEnableLock(); // لا await
-    await boot();
-  }catch(e){m.textContent='✕ '+e.message;}
+    booted=false;unlocked=true;tryEnableLock();await boot();
+  }catch(e){m.textContent='✕ '+e.message;console.error(e);}
   b.disabled=false;
 };
 
 $('updBtn').onclick=reload;
 $('unlockBtn').onclick=tryUnlock;
-
 $('relogin').onclick=async()=>{
-  if(confirm('ستدخل بالاسم وكلمة السر من جديد ويُلغى القفل. بياناتك وتحصيلاتك تبقى محفوظة. متابعة؟')){
-    try{await disable();}catch{}
-    try{await del('meta','auth');}catch{}
-    unlocked=false;
-    $('locked').hidden=true;
-    boot();
-  }
+  if(!confirm('ستدخل بالاسم وكلمة السر من جديد. بياناتك تبقى محفوظة. متابعة؟'))return;
+  try{await disable();}catch{}
+  try{await del('meta','auth');}catch{}
+  unlocked=false;booted=false;$('locked').hidden=true;boot();
 };
 
 document.addEventListener('visibilitychange',async()=>{
   if(document.hidden)hiddenAt=Date.now();
   else if(hiddenAt&&Date.now()-hiddenAt>60000){
-    try{ if(await isOn()){unlocked=false;hiddenAt=0;boot();} }catch{}
+    try{if(await isOn()){unlocked=false;booted=false;hiddenAt=0;boot();}}catch{}
   }
 });
 
@@ -149,20 +120,18 @@ addEventListener('online',net);addEventListener('offline',net);net();
 
 if('serviceWorker'in navigator){
   navigator.serviceWorker.register('sw.js').then(r=>{
-    // إذا وُجد إصدار جديد، حدّثه فوراً
     r.addEventListener('updatefound',()=>{
       const w=r.installing;
       if(w)w.addEventListener('statechange',()=>{
-        if(w.state==='installed'&&navigator.serviceWorker.controller){
-          w.postMessage({type:'SKIP_WAITING'});
-          setTimeout(()=>location.reload(),300);
-        }
+        if(w.state==='installed'&&navigator.serviceWorker.controller)w.postMessage({type:'SKIP_WAITING'});
       });
     });
   }).catch(console.warn);
+  navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='RELOAD')location.reload();});
 }
 
 $('menuBtn').onclick=e=>{e.stopPropagation();$('menu').hidden=!$('menu').hidden;};
 document.addEventListener('click',()=>{$('menu').hidden=true;});
 
+console.log('[app] started');
 boot();

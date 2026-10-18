@@ -19,12 +19,33 @@ export async function refresh(){
 export const work=()=>st.S.filter(s=>(st.all||s.inRoute)&&!st.paid.has(key(s)));
 export const toast=t=>{const e=document.getElementById('toast');e.textContent=t;e.className='show';setTimeout(()=>e.className='',2600);};
 
+/* ====== إيصال سداد (يُصدَّر لـ details.js) ====== */
+export function receipt(e){
+  const s = st.by.get(e.key) || {};
+  const w = window.open('', '_blank', 'width=400,height=600');
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>إيصال</title>
+  <style>body{font-family:'Segoe UI',Tahoma,sans-serif;padding:1rem;color:#0c2233}.r{max-width:340px;margin:auto;border:2px dashed #0c2233;border-radius:12px;padding:1rem}h1{font-size:1.1rem;text-align:center;margin:0 0 .6rem}.row{display:flex;justify-content:space-between;padding:.35rem 0;border-bottom:1px solid #d3dde4}.big{font-size:1.4rem;font-weight:800;text-align:center;margin:.9rem 0 .2rem}.foot{text-align:center;color:#5b6f7d;font-size:.8rem;margin-top:.6rem}</style></head><body>
+  <div class="r">
+    <h1>إيصال سداد غاز</h1>
+    <div class="row"><b>العميل</b><span>${esc(s.name || 'بدون اسم')}</span></div>
+    <div class="row"><b>العنوان</b><span>قطاع ${s.sector || '—'} · بلوك ${s.blk || '—'} · عمارة ${s.bld || '—'} · شقة ${s.apt || '—'}</span></div>
+    <div class="row"><b>التاريخ</b><span>${new Date(e.time).toLocaleString('ar-EG')}</span></div>
+    <div class="row"><b>النوع</b><span>${e.type === 'advance' ? 'سداد مقدم' : 'سداد'}</span></div>
+    <div class="big">${Number(e.amount || 0).toLocaleString('en-US')} جنيه</div>
+    <div class="foot">المحصّل: ${esc(st.who || '')} · إصدار ${esc(st.cycle || '')}</div>
+  </div>
+  <script>setTimeout(()=>window.print(),300)<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
 function aptsView(a){
   const ch=a.filter(s=>st.sel.has(key(s))),ct=tot(ch),allTot=tot(a);
   const rows=a.map(s=>{
     const k=key(s),b=st.adv.get(k)||0,selected=st.sel.has(k);
     return `<tr class="apt-row ${selected?'on':''}">
-      <td class="c-chk"><input type="checkbox" data-k="${k}" ${selected?'checked':''} aria-label="تحديد شقة ${s.apt}"></td>
+      <td class="c-chk"><input type="checkbox" data-k="${k}" ${selected?'checked':''}></td>
       <td class="c-apt">${s.apt}</td>
       <td class="c-name"><span class="name-txt">${esc(s.name||'بدون اسم')}</span> <button class="lnk" data-n="${k}" title="خيارات">✎</button></td>
       <td class="c-count">${s.count}</td>
@@ -57,7 +78,6 @@ function bind(el,a,v,again){
       openPage(c===2?'print.html':'reading.html',q);
     }
   });
-  // السداد: فقط عند الضغط على القيمة
   el.querySelectorAll('[data-p]').forEach(btn=>btn.onclick=async ev=>{
     ev.stopPropagation();
     const k=btn.dataset.p,s=st.by.get(k),amt=due(s);
@@ -86,15 +106,15 @@ function bind(el,a,v,again){
 
 export async function renderHome(el){
   const y=scrollY;back(false);if(!st.pager)st.bld=null;const w=work();
-  if(!st.S.length)return el.innerHTML='<div class="card empty">لا توجد بيانات بعد. من تبويب «ما تم تحصيله» اضغط «تحديث الملف».</div>';
+  if(!st.S.length)return el.innerHTML='<div class="card empty">لا توجد بيانات. اضغط «تحديث الملف» من تبويب «ما تم تحصيله».</div>';
   const secs=[...new Set(w.map(s=>s.sector))].sort(srt);
-  if(!secs.length)return el.innerHTML='<div class="card empty">لا يوجد عملاء غير مسددين في خط سيرك.</div>';
+  if(!secs.length)return el.innerHTML='<div class="card empty">لا يوجد عملاء غير مسددين.</div>';
   if(!secs.includes(st.sector))st.sector=secs[0];
   const blks=[...new Set(w.filter(s=>s.sector===st.sector).map(s=>s.blk))].sort(srt);if(!blks.includes(st.blk))st.blk=blks[0];
   const rows=w.filter(s=>s.sector===st.sector&&s.blk===st.blk),g={};rows.forEach(s=>(g[s.bld]??=[]).push(s));const t=tot(rows),last=await get('lastPosition','last');
   const hasLast=last&&w.some(s=>s.sector===last.sector&&s.blk===last.blk&&s.bld===last.bld);
   const opt=(a,v)=>a.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');let ov=null;
-  let html=`<div class="pick"><label class="field"><span>القطاع</span><select id="sSec">${opt(secs,st.sector)}</select></label><label class="field"><span>البلوك</span><select id="sBlk">${opt(blks,st.blk)}</select></label></div><div class="tools"><button class="btn ghost sm" id="pg">${st.pager?'إيقاف عرض الصفحات':'عرض كصفحات'}</button>${hasLast?`<button class="btn sm" id="rs">استكمال من آخر عمارة (${last.sector}-${last.blk}-${last.bld})</button>`:''}</div><p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p><div class="blist">`;
+  let html=`<div class="pick"><label class="field"><span>القطاع</span><select id="sSec">${opt(secs,st.sector)}</select></label><label class="field"><span>البلوك</span><select id="sBlk">${opt(blks,st.blk)}</select></label></div><div class="tools"><button class="btn ghost sm" id="pg">${st.pager?'إيقاف عرض الصفحات':'عرض كصفحات'}</button>${hasLast?`<button class="btn sm" id="rs">استكمال (${last.sector}-${last.blk}-${last.bld})</button>`:''}</div><p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p><div class="blist">`;
   for(const b of Object.keys(g).sort(srt)){const x=tot(g[b]),o=st.pager&&st.open===b,cells=`<b>عمارة ${b}</b><span>${x.n} شقة</span><span>${x.count} فاتورة</span><strong>${money(x.value)}</strong>`;
     html+=st.pager?`<div class="brow prow ${o?'open':''}" data-b="${b}" role="button" tabindex="0">${cells}</div>`:`<button class="brow" data-b="${b}">${cells}</button>`;
     if(o){st.bld=b;const a=g[b].sort((p,q)=>srt(p.apt,q.apt));ov={a,v:aptsView(a)};html+=`<div class="card apts">${ov.v.html}</div>`;}}
@@ -114,7 +134,7 @@ export function renderBuilding(el){
 
 export async function renderLedger(el,reload,exp){
   back(false);await refresh();const e=await list(),td=e.filter(x=>ldate(x.time)===ldate(new Date())),sum=td.reduce((s,x)=>s+x.amount,0);
-  el.innerHTML=`<div class="card"><h2>اليوم: ${td.length} عملية · ${money(sum)} جنيه</h2></div><div class="alist card">`+(e.map(x=>{const s=st.by.get(x.key)||{};return `<div class="lrow"><span class="an">${s.apt||'?'}</span><span class="nm">${esc(s.name||'بدون اسم')}${x.type==='advance'?' <em class="tag">مقدم</em>':''}<small>قطاع ${s.sector} · بلوك ${s.blk} · عمارة ${s.bld} · ${new Date(x.time).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'})}</small></span><strong>${money(x.amount)}</strong>${canUndo(x)?`<button class="btn ghost sm" data-u="${x.id}">تراجع</button>`:'<small class="fin">نهائي</small>'}</div>`;}).join('')||'<p class="mute">لا توجد تحصيلات بعد.</p>')+'</div><div class="card"><div class="actions"><button class="btn" id="ex">إرسال الأرشيف للأدمن</button><button class="btn ghost" id="rl">تحديث الملف</button></div><p class="mute">يحمّل الملف الأحدث. تحصيلاتك وأرصدتك المقدمة تبقى محفوظة ومطبّقة فوقه.</p></div>';
-  el.querySelectorAll('[data-u]').forEach(b=>b.onclick=async()=>{if(confirm('التراجع عن هذه العملية؟')){await undo(e.find(x=>x.id===b.dataset.u));renderLedger(el,reload);}});
+  el.innerHTML=`<div class="card"><h2>اليوم: ${td.length} عملية · ${money(sum)} جنيه</h2></div><div class="alist card">`+(e.map(x=>{const s=st.by.get(x.key)||{};return `<div class="lrow"><span class="an">${s.apt||'?'}</span><span class="nm">${esc(s.name||'بدون اسم')}${x.type==='advance'?' <em class="tag">مقدم</em>':''}<small>${s.sector}-${s.blk}-${s.bld} · ${new Date(x.time).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'})}</small></span><strong>${money(x.amount)}</strong>${canUndo(x)?`<button class="btn ghost sm" data-u="${x.id}">تراجع</button>`:'<small class="fin">نهائي</small>'}</div>`;}).join('')||'<p class="mute">لا توجد تحصيلات.</p>')+'</div><div class="card"><div class="actions"><button class="btn" id="ex">إرسال الأرشيف</button><button class="btn ghost" id="rl">تحديث الملف</button></div></div>';
+  el.querySelectorAll('[data-u]').forEach(b=>b.onclick=async()=>{if(confirm('التراجع؟')){await undo(e.find(x=>x.id===b.dataset.u));renderLedger(el,reload);}});
   el.querySelector('#rl').onclick=reload;el.querySelector('#ex').onclick=exp;
 }
