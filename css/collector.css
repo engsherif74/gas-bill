@@ -102,3 +102,10 @@ dialog.viewer iframe{width:100%;height:100%;border:0;background:#fff}
 .partial-opt{background:var(--paper);border:2px solid var(--line);border-radius:10px;padding:.6rem .7rem;font:inherit;font-weight:700;text-align:right;cursor:pointer;min-height:48px;display:flex;justify-content:space-between;align-items:center}
 .partial-opt small{color:var(--mute);font-weight:400;font-size:.75rem}
 .partial-opt.selected{border-color:#8b5cf6;background:color-mix(in srgb,#8b5cf6 12%,transparent)}
+
+
+/* شريط التنقل بين العمارات في وضع الصفحات */
+.pager-nav{display:flex;gap:.5rem;align-items:center;justify-content:center;margin:.6rem 0;flex-wrap:wrap}
+.bld-jump{width:80px;border:2px solid var(--line);border-radius:10px;padding:.4rem .6rem;font:inherit;text-align:center;min-height:40px;background:var(--paper);color:var(--ink)}
+.bld-jump:focus{border-color:#8b5cf6}
+
