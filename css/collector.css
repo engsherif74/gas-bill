@@ -898,5 +898,64 @@ dialog.viewer iframe{
   font-size: .85rem;
   min-height: 40px;
 }
-
+/* ===== نافذة تصدير Excel ===== */
+.export-dialog{
+  max-width: 520px;
+}
+.export-dialog h3{
+  font-size: 1.05rem;
+  margin-bottom: .4rem;
+}
+.export-sectors{
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: .6rem;
+  background: var(--paper);
+  margin: .5rem 0;
+}
+.export-sectors-head{
+  display: flex;
+  gap: .4rem;
+  align-items: center;
+  margin-bottom: .4rem;
+  flex-wrap: wrap;
+}
+.export-sectors-head b{
+  font-size: .9rem;
+}
+.export-sectors-body{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: .35rem;
+}
+.export-chk{
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: .35rem .5rem;
+  font-size: .88rem;
+  justify-content: flex-start;
+  cursor: pointer;
+}
+.export-chk input{
+  width: 18px;
+  height: 18px;
+}
+.export-preview{
+  background: var(--collector-soft);
+  border-radius: var(--r-md);
+  padding: .6rem .8rem;
+  margin: .5rem 0;
+}
+.export-stats{
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: .9rem;
+  color: var(--collector);
+}
+.export-stats b{
+  font-weight: 800;
+  font-size: 1rem;
+}
 
