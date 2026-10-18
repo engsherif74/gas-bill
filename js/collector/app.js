@@ -1,7 +1,7 @@
 import {get,put,putMany,del} from '../core/db.js';
 import {isOn,verify,disable,enable,supported} from './lock.js';
 import {loadFiles} from './fileLoader.js';
-import {st,refresh,renderHome,renderLedger,toast,esc} from './browse.js';
+import {st,refresh,renderHome,renderLedger,toast,esc,clearFilter} from './browse.js';
 import {renderArchive,renderDetails} from './details.js';
 import {renderSearch} from './search.js';
 import {reconcile} from './reconcile.js';
@@ -27,7 +27,7 @@ function show(t){
   st.bld = null; st.all = false;
   $('back').hidden = true;
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on', b.dataset.t === t));
-  try { R[t](); } catch(e){ console.error(e); toast('خطأ: ' + e.message); }
+  try { R[t](); } catch(e){ console.error('show('+t+')', e); toast('خطأ: ' + e.message); }
 }
 
 async function doExport(){
@@ -125,7 +125,12 @@ document.addEventListener('visibilitychange', async ()=>{
   }
 });
 
-document.querySelectorAll('#tabs button').forEach(b=>b.onclick = ()=>{ st.sel.clear(); st.open = null; show(b.dataset.t); });
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick = ()=>{
+  st.sel.clear(); st.open = null;
+  // إلغاء الفلترة عند تغيير التبويب (اختياري — يمكن إبقاؤها)
+  // clearFilter();
+  show(b.dataset.t);
+});
 $('back').onclick = ()=>history.back();
 addEventListener('popstate', ()=>{
   if (st.sel.size && !confirm('لديك تحديد غير محفوظ، هل تخرج؟')){
