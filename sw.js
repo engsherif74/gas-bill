@@ -1,6 +1,6 @@
-const CACHE = 'collect-v27';
+const CACHE = 'collect-v28';
 const SHELL = [
-  './','index.html','login.html','manifest.json',
+  './','index.html','login.html','manifest.json','gas_Calculator.html',
   'css/base.css','css/components.css','css/collector.css',
   'js/core/config.js','js/core/compress.js','js/core/crypto.js','js/core/db.js','js/core/normalize.js','js/core/utils.js',
   'js/collector/app.js','js/collector/unlock.js','js/collector/fileLoader.js','js/collector/browse.js',
