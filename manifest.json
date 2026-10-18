@@ -54,10 +54,10 @@
       ]
     },
     {
-      "name": "لوحة الأدمن",
-      "short_name": "الأدمن",
-      "description": "إعداد المحصّلين والبيانات",
-      "url": "/collection-app/admin.html",
+      "name": "حاسبة الغاز",
+      "short_name": "الحاسبة",
+      "description": "حاسبة فاتورة الغاز",
+      "url": "/collection-app/calculator.html",
       "icons": [
         {
           "src": "/collection-app/icon-192.png",
