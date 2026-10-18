@@ -31,6 +31,57 @@
       "purpose": "maskable"
     }
   ],
+  "screenshots": [
+    {
+      "src": "icons/screenshot-1-home.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "صفحة التحصيل"
+    },
+    {
+      "src": "icons/screenshot-2-building.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "عمارة مفتوحة"
+    },
+    {
+      "src": "icons/screenshot-4-ledger.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "ما تم تحصيله"
+    },
+    {
+      "src": "icons/screenshot-6-details.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "التفاصيل"
+    },
+    {
+      "src": "icons/screenshot-3-pay.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "تأكيد السداد"
+    },
+    {
+      "src": "icons/screenshot-5-search.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "البحث"
+    },
+    {
+      "src": "icons/screenshot-7-archive.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "الأرشيف"
+    }
+  ],
   "shortcuts": [
     {
       "name": "التحصيل",
