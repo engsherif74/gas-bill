@@ -1,37 +1,14 @@
-const CACHE = 'collect-v15';
+const CACHE = 'collect-v16';
 const SHELL = [
-  './',
-  'index.html',
-  'login.html',
-  'manifest.json',
-  'css/base.css',
-  'css/components.css',
-  'css/collector.css',
-  'js/core/config.js',
-  'js/core/compress.js',
-  'js/core/crypto.js',
-  'js/core/db.js',
-  'js/core/normalize.js',
-  'js/core/utils.js',
-  'js/collector/app.js',
-  'js/collector/unlock.js',
-  'js/collector/fileLoader.js',
-  'js/collector/browse.js',
-  'js/collector/payment.js',
-  'js/collector/ledger.js',
-  'js/collector/lock.js',
-  'pages/print.html',
-  'pages/reading.html',
-  'js/collector/search.js',
-  'js/collector/personal.js',
-  'js/collector/export.js',
-  'js/collector/reconcile.js',
-  'js/collector/updateCheck.js',
-  'js/collector/buttons.js',
-  'js/collector/details.js',
-  'js/collector/names.js',
-  'icons/icon-192.png',
-  'icons/icon-512.png'
+  './','index.html','login.html','manifest.json',
+  'css/base.css','css/components.css','css/collector.css',
+  'js/core/config.js','js/core/compress.js','js/core/crypto.js','js/core/db.js','js/core/normalize.js','js/core/utils.js',
+  'js/collector/app.js','js/collector/unlock.js','js/collector/fileLoader.js','js/collector/browse.js',
+  'js/collector/payment.js','js/collector/ledger.js','js/collector/lock.js',
+  'pages/print.html','pages/reading.html',
+  'js/collector/search.js','js/collector/personal.js','js/collector/export.js','js/collector/reconcile.js',
+  'js/collector/updateCheck.js','js/collector/buttons.js','js/collector/details.js','js/collector/names.js',
+  'icons/icon-192.png','icons/icon-512.png'
 ];
 self.addEventListener('install', e=>{ self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).catch(()=>{})); });
 self.addEventListener('activate', e=>{ e.waitUntil((async ()=>{
