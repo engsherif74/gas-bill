@@ -1,4 +1,4 @@
-const CACHE = 'collect-v16';
+const CACHE = 'collect-v17';
 const SHELL = [
   './','index.html','login.html','manifest.json',
   'css/base.css','css/components.css','css/collector.css',
