@@ -1,6 +1,6 @@
 import {all,get,put} from '../core/db.js';
 import {money} from '../core/utils.js';
-import {list,pay,addAdvance,undo,canUndo,ldate,keyOf as key} from './ledger.js';
+import {list,pay,addAdvance,undo,canUndo,ldate,keyOf as key,partialPay} from './ledger.js';
 import {totals} from './payment.js';
 import {openPage} from './buttons.js';
 import {getManual,saveManual} from './names.js';
@@ -55,7 +55,7 @@ export function receipt(e){
   w.document.close();
 }
 
-/* ====== قائمة ⋮ للشقة داخل العمارة ====== */
+/* ====== بطاقات الشقق داخل العمارة ====== */
 function aptsView(a){
   const ch = a.filter(s=>st.sel.has(key(s)));
   const ct = tot(ch), allTot = tot(a);
@@ -65,6 +65,7 @@ function aptsView(a){
       ? esc(s.name)
       : '<em class="empty-name">بدون اسم</em>';
     const advHtml = b ? `<div class="apt-adv">مقدم ${money(b)}</div>` : '';
+    const partial = (s.count || 0) > 1;
     return `<div class="apt-card ${selected?'on':''}" data-card="${k}">
       <label class="apt-chk">
         <input type="checkbox" data-k="${k}" ${selected?'checked':''}>
@@ -79,7 +80,8 @@ function aptsView(a){
         <button class="apt-dots" data-m="${k}">⋮</button>
         <div class="apt-pop" data-pop="${k}" hidden>
           <button data-act="read" data-id="${k}">قراءة عداد</button>
-          <div class="apt-pop-info">الفواتير: ${s.count}</div>
+          ${partial ? `<button data-act="partial" data-id="${k}">سداد جزئي</button>` : ''}
+          <div class="apt-pop-info">الفواتير: ${s.count} · القيمة: ${money(s.value)}</div>
           ${!s.name ? `<button data-act="name" data-id="${k}">تعديل الاسم</button>` : ''}
         </div>
       </div>
@@ -96,6 +98,74 @@ const bar = v => `<div class="bar">
   <div><small>المتبقي بعد السداد</small><b>${money(v.allTot.value - v.ct.value)}</b></div>
   <button class="btn" id="pay" ${v.ch.length?'':'disabled'}>سداد المحدد</button>
 </div>`;
+
+/* ====== نافذة السداد الجزئي ====== */
+function partialDialog(s, k, advMap){
+  return new Promise(resolve=>{
+    const d = document.createElement('dialog');
+    d.className = 'partial-dialog';
+    const maxCount = s.count || 1;
+    const unitValue = maxCount > 0 ? Math.round((s.value / maxCount) * 100) / 100 : s.value;
+    
+    // خيارات السداد الجزئي
+    let options = '';
+    if (s.invoices && Array.isArray(s.invoices) && s.invoices.length > 1){
+      // الحالة 2: البيانات متوفرة (فواتير مفصلة)
+      let cumulative = 0;
+      s.invoices.forEach((inv, i)=>{
+        cumulative += (inv.amount || 0);
+        const cnt = i + 1;
+        options += `<button class="partial-opt" data-cnt="${cnt}" data-amt="${cumulative}">
+          عدد ${cnt} — ${money(cumulative)} جنيه
+          <small>${inv.month || ('فاتورة ' + (i+1))}</small>
+        </button>`;
+      });
+    }
+    
+    d.innerHTML = `
+      <h3>سداد جزئي — شقة ${s.apt}</h3>
+      <p class="mute">المديونية الحالية: ${s.count} فاتورة بقيمة ${money(s.value)} جنيه</p>
+      ${options ? `<div class="partial-options">${options}</div>` : `
+      <div class="stack">
+        <label class="field"><span>عدد الفواتير المسددة</span><input id="pCount" type="number" min="1" max="${maxCount}" value="1"></label>
+        <label class="field"><span>القيمة المسددة</span><input id="pAmount" type="number" min="1" value="${unitValue}"></label>
+      </div>
+      `}
+      <div class="actions">
+        <button class="btn" id="pOk">تأكيد السداد</button>
+        <button class="btn ghost" id="pCancel">إلغاء</button>
+      </div>
+    `;
+    document.body.append(d);
+    d.showModal();
+    
+    d.querySelector('#pCancel').onclick = ()=>{ d.close(); d.remove(); resolve(null); };
+    d.querySelector('#pOk').onclick = ()=>{
+      let count, amount;
+      if (options){
+        const sel = d.querySelector('.partial-opt.selected');
+        if (!sel){ alert('اختر إحدى القيم'); return; }
+        count = +sel.dataset.cnt;
+        amount = +sel.dataset.amt;
+      } else {
+        count = +d.querySelector('#pCount').value;
+        amount = +d.querySelector('#pAmount').value;
+      }
+      if (!(count > 0) || !(amount > 0)){ alert('أدخل قيماً صحيحة'); return; }
+      if (count > maxCount){ alert('عدد الفواتير أكبر من المديونية'); return; }
+      if (amount > s.value){ alert('القيمة أكبر من المديونية'); return; }
+      d.close(); d.remove();
+      resolve({count, amount});
+    };
+    // اختيار خيار
+    d.querySelectorAll('.partial-opt').forEach(b=>{
+      b.onclick = ()=>{
+        d.querySelectorAll('.partial-opt').forEach(x=>x.classList.remove('selected'));
+        b.classList.add('selected');
+      };
+    });
+  });
+}
 
 function bind(el, a, v, again){
   // checkbox
@@ -120,6 +190,7 @@ function bind(el, a, v, again){
       ev.stopPropagation();
       const k = b.dataset.id, s = st.by.get(k);
       const act = b.dataset.act;
+      
       if (act === 'read'){
         const q = new URLSearchParams({n:s.name||'', s:s.sector, b:s.blk, d:s.bld, a:s.apt, v:s.value, r:st.adv.get(k)||0, q:due(s), c:s.count, m:st.cycle, u:st.who, k}).toString();
         openPage('reading.html', q);
@@ -130,6 +201,16 @@ function bind(el, a, v, again){
         if (n && n.trim()){
           await saveManual(k, n.trim());
           await refresh();
+          el.querySelectorAll('[data-pop]').forEach(p=>p.hidden = true);
+          again();
+        }
+      }
+      if (act === 'partial'){
+        const res = await partialDialog(s, k, st.adv);
+        if (res){
+          await partialPay(st.no, s, res, st.adv);
+          await refresh();
+          toast(`تم سداد جزئي: ${res.count} فاتورة (${money(res.amount)} جنيه)`);
           el.querySelectorAll('[data-pop]').forEach(p=>p.hidden = true);
           again();
         }
@@ -229,7 +310,7 @@ export function renderBuilding(el){
   bind(el, a, v, ()=>renderBuilding(el));
 }
 
-/* ====== صفحة ما تم تحصيله: بطاقات + قائمة ⋮ ====== */
+/* ====== صفحة ما تم تحصيله ====== */
 export async function renderLedger(el, reload, exp){
   back(false); await refresh();
   const e = await list();
@@ -243,7 +324,7 @@ export async function renderLedger(el, reload, exp){
         <div class="led-main">
           <span class="led-apt">${s.apt || '?'}</span>
           <div class="led-info">
-            <div class="led-name">${esc(s.name || 'بدون اسم')}${x.type==='advance'?' <em class="tag">مقدم</em>':''}</div>
+            <div class="led-name">${esc(s.name || 'بدون اسم')}${x.type==='advance'?' <em class="tag">مقدم</em>':''}${x.partial?' <em class="tag">جزئي</em>':''}</div>
             <div class="led-meta">قطاع ${s.sector||''} · بلوك ${s.blk||''} · عمارة ${s.bld||''} · ${new Date(x.time).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'})}</div>
           </div>
           <div class="led-amount">${money(x.amount)}</div>
@@ -261,7 +342,6 @@ export async function renderLedger(el, reload, exp){
   `</div>
   <div class="card"><div class="actions"><button class="btn" id="ex">إرسال الأرشيف</button><button class="btn ghost" id="rl">تحديث الملف</button></div></div>`;
 
-  // قائمة ⋮
   el.querySelectorAll('[data-m]').forEach(btn=>{
     btn.onclick = ev=>{
       ev.stopPropagation();
@@ -272,7 +352,6 @@ export async function renderLedger(el, reload, exp){
   });
   document.addEventListener('click', ()=>{ el.querySelectorAll('[data-pop]').forEach(p=>p.hidden = true); });
 
-  // إجراءات القائمة
   el.querySelectorAll('[data-act]').forEach(b=>{
     b.onclick = async ev=>{
       ev.stopPropagation();
