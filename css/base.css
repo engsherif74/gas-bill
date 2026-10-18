@@ -1,7 +1,277 @@
-:root{--ink:#0c2233;--paper:#eef3f6;--card:#fff;--line:#d3dde4;--mute:#5b6f7d;--flame:#0a6fb0;--ember:#f2a516;--ok:#14805f;--bad:#c23b3b;--r:14px}
-@media(prefers-color-scheme:dark){:root{--ink:#e7eff5;--paper:#0a1722;--card:#112636;--line:#223a4c;--mute:#8da4b4;--flame:#4fb0ee;--ember:#f5b53a;--ok:#3cc596;--bad:#ef7a7a}}
-*{box-sizing:border-box;margin:0}
-html{direction:rtl;font-size:15px}
-body{font-family:'Segoe UI','Noto Sans Arabic',Tahoma,Arial,sans-serif;background:var(--paper);color:var(--ink);line-height:1.7;min-height:100vh;-webkit-tap-highlight-color:transparent}
-:focus-visible{outline:3px solid var(--ember);outline-offset:2px}
-@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* ============================================================
+   محصّل الغاز — الهوية البصرية الأساسية
+   المطور: [اسمك]
+   الإصدار: 1.0.0
+   ============================================================ */
+
+/* ===== الوضع الفاتح ===== */
+:root{
+  /* الخلفيات */
+  --paper: #f4f7fa;
+  --paper-2: #e8eef4;
+  --card: #ffffff;
+  --line: #d6e0e8;
+
+  /* النصوص */
+  --ink: #0f2438;
+  --mute: #6b7f8f;
+  --soft: #9aafbf;
+
+  /* الأساسيات */
+  --flame: #1e6fa8;
+  --ember: #e8940c;
+  --ok: #0d9668;
+  --bad: #d63a3a;
+  --info: #3b82f6;
+
+  /* التمييز */
+  --hl-apt: #0ea5e9;
+  --hl-bld: #d946a8;
+  --hl-blk: #d97706;
+
+  /* الشارات */
+  --tag-personal: #7c3aed;
+  --tag-partial: #ea580c;
+  --tag-advance: #0d9668;
+  --tag-out: #d63a3a;
+  --tag-other: #475569;
+
+  /* الصفحات */
+  --collector: #7c3aed;
+  --collector-soft: #ede9fe;
+  --ledger: #0ea5e9;
+  --ledger-soft: #e0f2fe;
+  --archive: #d97706;
+  --archive-soft: #fef3c7;
+  --details: #0d9668;
+  --details-soft: #d1fae5;
+  --search: #3b82f6;
+
+  /* التدرجات */
+  --grad-top: linear-gradient(135deg, #0f2438 0%, #1e3a5f 100%);
+  --grad-collector: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+  --grad-ledger: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+
+  /* الظلال */
+  --shadow-sm: 0 1px 2px rgba(15,36,56,0.06);
+  --shadow-md: 0 4px 12px rgba(15,36,56,0.10);
+  --shadow-lg: 0 12px 32px rgba(15,36,56,0.15);
+
+  /* الخطوط */
+  --font: 'Segoe UI', 'Noto Sans Arabic', Tahoma, Arial, sans-serif;
+  --fs-base: 16px;
+  --fs-sm: 14px;
+  --fs-xs: 12px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+
+  /* الحدود */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+}
+
+/* ===== الوضع الداكن ===== */
+@media(prefers-color-scheme:dark){
+  :root{
+    --paper: #0a1722;
+    --paper-2: #13293d;
+    --card: #1a2f42;
+    --line: #2a4257;
+
+    --ink: #e7eff5;
+    --mute: #8da4b4;
+    --soft: #6b7f8f;
+
+    --flame: #4fa8e8;
+    --ember: #f5b53a;
+    --ok: #34d399;
+    --bad: #f87171;
+    --info: #60a5fa;
+
+    --hl-apt: #38bdf8;
+    --hl-bld: #f472b6;
+    --hl-blk: #fbbf24;
+
+    --tag-personal: #a78bfa;
+    --tag-partial: #fb923c;
+    --tag-advance: #34d399;
+    --tag-out: #f87171;
+    --tag-other: #94a3b8;
+
+    --collector: #a78bfa;
+    --collector-soft: #2e1065;
+    --ledger: #38bdf8;
+    --ledger-soft: #082f49;
+    --archive: #fbbf24;
+    --archive-soft: #451a03;
+    --details: #34d399;
+    --details-soft: #064e3b;
+    --search: #60a5fa;
+
+    --grad-top: linear-gradient(135deg, #0a1722 0%, #13293d 100%);
+    --grad-collector: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
+    --grad-ledger: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,0.5);
+  }
+}
+
+/* ===== الأساسيات ===== */
+*{ box-sizing: border-box; margin: 0; padding: 0; }
+html{ direction: rtl; font-size: var(--fs-base); -webkit-text-size-adjust: 100%; }
+body{
+  font-family: var(--font);
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.7;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+/* ===== الحقول ===== */
+input, select, textarea, button{ font: inherit; color: inherit; }
+input[type=text], input[type=number], input[type=password], select, textarea{
+  width: 100%;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: var(--r-md);
+  padding: .6rem .8rem;
+  min-height: 48px;
+  transition: border-color .2s, box-shadow .2s;
+}
+input:focus, select:focus, textarea:focus{
+  outline: none;
+  border-color: var(--flame);
+  box-shadow: 0 0 0 3px rgba(30,111,168,0.15);
+}
+input[type=checkbox]{
+  width: 20px; height: 20px;
+  accent-color: var(--collector);
+  cursor: pointer;
+}
+input[type=radio]{
+  width: 18px; height: 18px;
+  accent-color: var(--flame);
+  cursor: pointer;
+}
+
+/* ===== الأزرار ===== */
+.btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  border: 0;
+  border-radius: var(--r-md);
+  padding: .7rem 1.2rem;
+  font-weight: 700;
+  background: var(--flame);
+  color: #fff;
+  cursor: pointer;
+  min-height: 48px;
+  transition: transform .12s, background .2s, box-shadow .2s;
+  box-shadow: var(--shadow-sm);
+}
+.btn:active{ transform: scale(.97); }
+.btn:disabled{ opacity: .5; cursor: not-allowed; }
+.btn.ghost{
+  background: transparent;
+  color: var(--flame);
+  border: 2px solid var(--flame);
+  box-shadow: none;
+}
+.btn.ghost:hover{ background: rgba(30,111,168,0.08); }
+.btn.sm{ padding: .35rem .7rem; min-height: 36px; font-size: var(--fs-sm); }
+.btn.ok{ background: var(--ok); }
+.btn.bad{ background: var(--bad); }
+
+/* ===== الروابط ===== */
+a{ color: var(--flame); text-decoration: none; }
+a:hover{ text-decoration: underline; }
+.lnk{
+  background: none;
+  border: 0;
+  color: var(--collector);
+  font: inherit;
+  font-weight: 700;
+  padding: .2rem .4rem;
+  cursor: pointer;
+  min-height: 32px;
+  border-radius: var(--r-sm);
+  transition: background .2s;
+}
+.lnk:hover{ background: var(--collector-soft); }
+
+/* ===== العناوين ===== */
+h1{ font-size: var(--fs-xl); font-weight: 800; line-height: 1.2; }
+h2{ font-size: var(--fs-lg); font-weight: 800; line-height: 1.3; }
+h3{ font-size: var(--fs-base); font-weight: 800; line-height: 1.4; }
+
+/* ===== النصوص ===== */
+.mute{ color: var(--mute); font-size: var(--fs-sm); }
+.soft{ color: var(--soft); font-size: var(--fs-xs); }
+.name{ font-weight: 700; font-size: var(--fs-base); }
+.mono{ font-variant-numeric: tabular-nums; }
+
+/* ===== الشارات ===== */
+.tag{
+  display: inline-block;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: .1rem .5rem;
+  border-radius: var(--r-sm);
+  background: var(--ember);
+  color: #0f2438;
+  line-height: 1.4;
+}
+.tag.personal{ background: var(--tag-personal); color: #fff; }
+.tag.partial{ background: var(--tag-partial); color: #fff; }
+.tag.advance{ background: var(--tag-advance); color: #fff; }
+.tag.out{ background: var(--tag-out); color: #fff; }
+.tag.other{ background: var(--tag-other); color: #fff; }
+
+/* ===== البطاقات ===== */
+.card{
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===== الحاويات ===== */
+.empty{
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--mute);
+  font-size: var(--fs-base);
+}
+
+/* ===== التأثيرات ===== */
+@media(prefers-reduced-motion:reduce){
+  *{ transition: none !important; animation: none !important; }
+}
+
+/* ===== الطباعة ===== */
+@media print{
+  body{ background: #fff; color: #000; }
+  .btn, .lnk{ display: none !important; }
+  .card{ box-shadow: none; border: 1px solid #ccc; }
+}
+
+/* ===== التذييل ===== */
+.app-footer{
+  text-align: center;
+  padding: 1rem;
+  color: var(--mute);
+  font-size: var(--fs-xs);
+  border-top: 1px solid var(--line);
+  margin-top: 2rem;
+}
+.app-footer b{ color: var(--ink); font-weight: 700; }
