@@ -1,5 +1,4 @@
-const CACHE = 'collect-v23';
-
+const CACHE = 'collect-v24';
 const SHELL = [
   './',
   'index.html',
@@ -39,7 +38,9 @@ const SHELL = [
 self.addEventListener('install', function(e){
   self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE).then(function(c){ return c.addAll(SHELL); }).catch(function(){})
+    caches.open(CACHE).then(function(c){
+      return c.addAll(SHELL);
+    }).catch(function(){})
   );
 });
 
