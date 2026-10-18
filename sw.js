@@ -1,36 +1,24 @@
-const CACHE = 'collect-v20';
-const SHELL = [
-  './','index.html','login.html','manifest.json',
-  'css/base.css','css/components.css','css/collector.css',
-  'js/core/config.js','js/core/compress.js','js/core/crypto.js','js/core/db.js','js/core/normalize.js','js/core/utils.js',
-  'js/collector/app.js','js/collector/unlock.js','js/collector/fileLoader.js','js/collector/browse.js',
-  'js/collector/payment.js','js/collector/ledger.js','js/collector/lock.js','js/collector/monthly.js',
-  'pages/print.html','pages/reading.html',
-  'js/collector/search.js','js/collector/personal.js','js/collector/export.js','js/collector/reconcile.js',
-  'js/collector/updateCheck.js','js/collector/buttons.js','js/collector/details.js','js/collector/names.js',
-  'icons/icon-192.png','icons/icon-512.png'
-];
-self.addEventListener('install', e=>{ self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).catch(()=>{})); });
-self.addEventListener('activate', e=>{ e.waitUntil((async ()=>{
-  const keys = await caches.keys();
-  await Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)));
-  await self.clients.claim();
-  const cs = await self.clients.matchAll({type:'window'});
-  cs.forEach(c=>c.postMessage({type:'RELOAD'}));
-})()); });
-self.addEventListener('message', e=>{ if (e.data && e.data.type==='SKIP_WAITING') self.skipWaiting(); });
-self.addEventListener('fetch', e=>{
-  const u = new URL(e.request.url);
-  if (e.request.method !== 'GET' || u.origin !== location.origin) return;
-  if (u.pathname.includes('/data/') || u.pathname.endsWith('version.json')){ e.respondWith(fetch(e.request, {cache:'no-store'})); return; }
-  e.respondWith((async ()=>{
-    const cached = await caches.match(e.request);
-    if (cached) return cached;
-    try{
-      const r = await fetch(e.request);
-      const c = r.clone();
-      caches.open(CACHE).then(x=>x.put(e.request, c));
-      return r;
-    }catch{ return caches.match('index.html'); }
-  })());
-});
+import {get} from '../core/db.js';
+
+export async function monthsFor(s){
+  if (s.invoices && Array.isArray(s.invoices) && s.invoices.length) return s.invoices;
+  const legacy = await get('legacyMonths', s.sector + '|' + s.blk + '|' + s.bld + '|' + s.apt);
+  if (legacy && Array.isArray(legacy) && legacy.length) return legacy;
+  return null;
+}
+
+export function monthOptions(s){
+  const inv = s.invoices;
+  if (!inv || !Array.isArray(inv) || inv.length < 2) return null;
+  const sorted = [...inv].sort((a,b)=> (a.month||'') < (b.month||'') ? -1 : 1);
+  const opts = [];
+  let cumCount = 0, cumAmount = 0;
+  sorted.forEach((inv, i)=>{
+    cumCount += inv.count || 1;
+    cumAmount += inv.amount || 0;
+    opts.push({ count: cumCount, amount: cumAmount, label: inv.month || ('فاتورة ' + (i+1)) });
+  });
+  const maxCount = s.count || cumCount;
+  const maxAmount = s.value || cumAmount;
+  return opts.filter(o => o.count <= maxCount && o.amount <= maxAmount);
+}
