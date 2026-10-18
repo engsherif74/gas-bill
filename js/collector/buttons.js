@@ -1,5 +1,6 @@
 import {get} from '../core/db.js';
 import {isOn, enable, disable, verify} from './lock.js';
+import {openExportDialog} from './exportExcel.js';
 
 const ok = f => /^https:\/\//.test(f) || /^[\w.-]+\.html?$/.test(f);
 const url = f => /^https:/.test(f) ? f : 'pages/' + f;
@@ -41,6 +42,11 @@ export async function renderMenu(){
 
   html += '<hr>';
 
+  // تصدير Excel
+  html += `<button type="button" data-export="1">📊 تصدير Excel (غير المسددين)</button>`;
+
+  html += '<hr>';
+
   // الواجهات الإضافية
   btns.forEach(x => {
     html += `<button type="button" data-f="${esc(x.file)}">${esc(x.name)}</button>`;
@@ -48,7 +54,7 @@ export async function renderMenu(){
 
   // أزرار ثابتة
   html += '<hr>';
-  html += '<button type="button" data-archive="1">📊 الأرشيف</button>';
+  html += '<button type="button" data-archive="1">📚 الأرشيف</button>';
   html += '<button type="button" data-details="1">📋 التفاصيل</button>';
 
   m.innerHTML = html;
@@ -69,6 +75,12 @@ export async function renderMenu(){
       alert(e.message || 'تعذر تنفيذ العملية');
     }
     renderMenu();
+  };
+
+  // تصدير Excel
+  m.querySelector('[data-export]').onclick = () => {
+    m.hidden = true;
+    openExportDialog();
   };
 
   // الواجهات الإضافية
