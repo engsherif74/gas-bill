@@ -55,24 +55,38 @@ export function receipt(e){
   w.document.close();
 }
 
+/* ====== قائمة ⋮ للشقة داخل العمارة ====== */
 function aptsView(a){
   const ch = a.filter(s=>st.sel.has(key(s)));
   const ct = tot(ch), allTot = tot(a);
-  const rows = a.map(s=>{
+  const cards = a.map(s=>{
     const k = key(s), b = st.adv.get(k)||0, selected = st.sel.has(k);
     const nameHtml = s.name
-      ? `<span class="name-txt" data-nm="${k}">${esc(s.name)}</span>`
-      : `<span class="name-txt empty-name" data-nm="${k}">بدون اسم</span>`;
-    return `<tr class="apt-row ${selected?'on':''}">
-      <td class="c-chk"><input type="checkbox" data-k="${k}" ${selected?'checked':''}></td>
-      <td class="c-apt">${s.apt}</td>
-      <td class="c-name">${nameHtml}</td>
-      <td class="c-count">${s.count}</td>
-      <td class="c-val"><button class="val-btn" data-p="${k}">${money(due(s))}</button>${b?`<small class="adv">مقدم ${money(b)}</small>`:''}</td>
-    </tr>`;
+      ? esc(s.name)
+      : '<em class="empty-name">بدون اسم</em>';
+    const advHtml = b ? `<div class="apt-adv">مقدم ${money(b)}</div>` : '';
+    return `<div class="apt-card ${selected?'on':''}" data-card="${k}">
+      <label class="apt-chk">
+        <input type="checkbox" data-k="${k}" ${selected?'checked':''}>
+      </label>
+      <div class="apt-apt">${s.apt}</div>
+      <div class="apt-body">
+        <div class="apt-name">${nameHtml}</div>
+        <div class="apt-meta">${s.count} فاتورة${advHtml}</div>
+      </div>
+      <button class="apt-val" data-p="${k}">${money(due(s))}</button>
+      <div class="apt-menu-wrap">
+        <button class="apt-dots" data-m="${k}">⋮</button>
+        <div class="apt-pop" data-pop="${k}" hidden>
+          <button data-act="read" data-id="${k}">قراءة عداد</button>
+          <div class="apt-pop-info">الفواتير: ${s.count}</div>
+          ${!s.name ? `<button data-act="name" data-id="${k}">تعديل الاسم</button>` : ''}
+        </div>
+      </div>
+    </div>`;
   }).join('');
   const html = `<div class="bh"><h2>عمارة ${st.bld}</h2><label class="chk"><input type="checkbox" id="all" ${ch.length===a.length&&a.length?'checked':''}> تحديد الكل</label></div>
-    <div class="wrap"><table class="apt-table"><tbody>${rows}</tbody></table></div>`;
+    <div class="apt-list">${cards}</div>`;
   return {html, ch, ct, allTot};
 }
 
@@ -89,60 +103,38 @@ function bind(el, a, v, again){
   const allCb = el.querySelector('#all');
   if (allCb) allCb.onchange = e => { a.forEach(s=>e.target.checked?st.sel.add(key(s)):st.sel.delete(key(s))); again(); };
 
-  // ===== الضغط المطول على اسم العميل =====
-  // - إذا الاسم فارغ: قائمة [إدخال الاسم، قراءة عداد]
-  // - إذا الاسم موجود: قائمة [قراءة عداد] فقط
-  el.querySelectorAll('[data-nm]').forEach(nm=>{
-    let timer = null;
-    let fired = false;
+  // القائمة المنسدلة ⋮
+  el.querySelectorAll('[data-m]').forEach(btn=>{
+    btn.onclick = ev=>{
+      ev.stopPropagation();
+      el.querySelectorAll('[data-pop]').forEach(p=>p.hidden = true);
+      const pop = el.querySelector(`[data-pop="${btn.dataset.m}"]`);
+      if (pop) pop.hidden = !pop.hidden;
+    };
+  });
+  document.addEventListener('click', ()=>{ el.querySelectorAll('[data-pop]').forEach(p=>p.hidden = true); });
 
-    const openMenu = async ()=>{
-      fired = true;
-      const k = nm.dataset.nm, s = st.by.get(k);
-      const nameEmpty = !s || !s.name;
-      let opts, cancelIdx;
-      if (nameEmpty){
-        opts = ['إدخال الاسم','قراءة عداد'];
-        cancelIdx = 2;
-      } else {
-        opts = ['قراءة عداد'];
-        cancelIdx = 1;
+  // إجراءات القائمة
+  el.querySelectorAll('[data-act]').forEach(b=>{
+    b.onclick = async ev=>{
+      ev.stopPropagation();
+      const k = b.dataset.id, s = st.by.get(k);
+      const act = b.dataset.act;
+      if (act === 'read'){
+        const q = new URLSearchParams({n:s.name||'', s:s.sector, b:s.blk, d:s.bld, a:s.apt, v:s.value, r:st.adv.get(k)||0, q:due(s), c:s.count, m:st.cycle, u:st.who, k}).toString();
+        openPage('reading.html', q);
+        el.querySelectorAll('[data-pop]').forEach(p=>p.hidden = true);
       }
-      const c = await choose('خيارات العميل', opts);
-      if (c < 0) return;
-
-      if (nameEmpty){
-        if (c === 0){ // إدخال الاسم
-          const n = prompt('اسم العميل', s?.name || '');
-          if (n && n.trim()){ await saveManual(k, n.trim()); await refresh(); again(); }
-          return;
-        }
-        if (c === 1){ // قراءة عداد
-          const q = new URLSearchParams({n:s.name||'', s:s.sector, b:s.blk, d:s.bld, a:s.apt, v:s.value, r:st.adv.get(k)||0, q:due(s), c:s.count, m:st.cycle, u:st.who, k}).toString();
-          openPage('reading.html', q);
-        }
-      } else {
-        if (c === 0){ // قراءة عداد
-          const q = new URLSearchParams({n:s.name||'', s:s.sector, b:s.blk, d:s.bld, a:s.apt, v:s.value, r:st.adv.get(k)||0, q:due(s), c:s.count, m:st.cycle, u:st.who, k}).toString();
-          openPage('reading.html', q);
+      if (act === 'name'){
+        const n = prompt('اسم العميل', s?.name || '');
+        if (n && n.trim()){
+          await saveManual(k, n.trim());
+          await refresh();
+          el.querySelectorAll('[data-pop]').forEach(p=>p.hidden = true);
+          again();
         }
       }
     };
-
-    const start = ()=>{
-      fired = false;
-      timer = setTimeout(openMenu, 550);
-    };
-    const cancel = ()=>{ if (timer) { clearTimeout(timer); timer = null; } };
-    nm.addEventListener('mousedown', start);
-    nm.addEventListener('touchstart', start, {passive:true});
-    nm.addEventListener('mouseup', cancel);
-    nm.addEventListener('mouseleave', cancel);
-    nm.addEventListener('touchend', cancel);
-    nm.addEventListener('touchcancel', cancel);
-    // منع السلوك الافتراضي بعد الضغط المطول
-    nm.addEventListener('click', e=>{ if (fired){ e.preventDefault(); e.stopPropagation(); fired = false; } });
-    nm.addEventListener('contextmenu', e=>e.preventDefault());
   });
 
   // السداد بالضغط على القيمة فقط
@@ -237,7 +229,7 @@ export function renderBuilding(el){
   bind(el, a, v, ()=>renderBuilding(el));
 }
 
-/* ====== صفحة ما تم تحصيله: قائمة منسدلة (⋮) ====== */
+/* ====== صفحة ما تم تحصيله: بطاقات + قائمة ⋮ ====== */
 export async function renderLedger(el, reload, exp){
   back(false); await refresh();
   const e = await list();
