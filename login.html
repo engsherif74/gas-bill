@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c2233">
+<title>تسجيل الدخول · محصّل الغاز</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/collector.css">
+<style>
+  body{display:grid;place-items:center;min-height:100vh;padding:1rem}
+  .login-card{max-width:420px;width:100%}
+  .login-card h1{text-align:center;font-size:1.4rem;margin-bottom:.3rem}
+  .login-card .sub{text-align:center;color:var(--mute);margin-bottom:1.2rem}
+  .login-card .logo{display:block;margin:0 auto 1rem;width:64px;height:64px}
+</style>
+</head>
+<body>
+<main class="login-card">
+  <section class="card">
+    <svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 3c3 9 14 13 14 26a14 14 0 0 1-28 0c0-6 3-9 6-12 0 5 3 7 5 7-2-8 0-15 3-21z" fill="#f2a516"/><path d="M24 24c2 4 7 6 7 12a7 7 0 0 1-14 0c0-4 4-6 7-12z" fill="#0a6fb0"/></svg>
+    <h1>محصّل الغاز</h1>
+    <p class="sub">اكتب بياناتك مرة واحدة، ثم افتح التطبيق ببصمتك.</p>
+    <div class="stack">
+      <label class="field"><span>الاسم (اختياري)</span><input id="name" autocomplete="off" placeholder="يُؤخذ تلقائياً من رقم الأداء"></label>
+      <label class="field"><span>رقم الأداء</span><input id="no" inputmode="numeric" autocomplete="off"></label>
+      <label class="field"><span>كلمة السر</span><input id="pw" type="password" autocomplete="off"></label>
+    </div>
+    <div class="actions" style="margin-top:1rem">
+      <button class="btn" id="go" style="width:100%">دخول وتحميل الملفات</button>
+    </div>
+    <p class="mute" id="msg" style="text-align:center;margin-top:.8rem"></p>
+  </section>
+</main>
+<script type="module">
+import {login} from './js/collector/unlock.js';
+import {loadFiles} from './js/collector/fileLoader.js';
+import {isOn,enable,supported} from './js/collector/lock.js';
+
+const $ = id => document.getElementById(id);
+$('no').value = localStorage.getItem('lastNo') || '';
+
+async function tryEnableLock(){
+  try{
+    if(await isOn()) return;
+    if(!(await supported())) return;
+    if(confirm('هل تريد تفعيل فتح التطبيق ببصمة أو نقش أو كلمة مرور الجهاز؟')){
+      await enable();
+      alert('تم تفعيل القفل. سيطلب التطبيق بصمتك عند كل فتح.');
+    }
+  }catch(e){ console.warn(e); }
+}
+
+$('go').onclick = async () => {
+  const b = $('go'), m = $('msg');
+  b.disabled = true; m.textContent = 'جارٍ التحقق…';
+  try{
+    const a = await login($('name').value.trim(), $('no').value, $('pw').value);
+    localStorage.setItem('lastNo', a.no);
+    const n = await loadFiles(a, t => m.textContent = t);
+    m.textContent = `تم تحميل ${n} عميل`;
+    await tryEnableLock();
+    location.replace('index.html');
+  }catch(e){
+    m.textContent = '✕ ' + e.message;
+  }
+  b.disabled = false;
+};
+</script>
+</body>
+</html>
