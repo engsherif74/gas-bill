@@ -66,7 +66,7 @@ dialog.viewer iframe{width:100%;height:100%;border:0;background:#fff}
 .apt-name .empty-name{color:var(--mute);font-style:italic;font-weight:500}
 .apt-meta{color:var(--mute);font-size:.7rem;margin-top:.1rem}
 .apt-adv{color:#f2a516;font-weight:700;display:inline;margin-inline-start:.3rem}
-.apt-val{background:#f2a516;color:#0c2233;border:0;border-radius:8px;padding:.35rem .45rem;font:inherit;font-weight:800;cursor:pointer;min-height:34px;min-width:64px;text-align:center;font-size:.85rem;font-variant-numeric:tabular-nums}
+.apt-val{background:none;border:0;color:#f2a516;font:inherit;font-weight:800;cursor:pointer;min-height:34px;min-width:56px;text-align:left;font-size:.95rem;font-variant-numeric:tabular-nums;padding:.2rem .2rem}
 .apt-val:active{transform:scale(.97)}
 .apt-menu-wrap{position:relative}
 .apt-dots{background:none;border:0;font-size:1.1rem;cursor:pointer;padding:.1rem .3rem;color:var(--mute);border-radius:6px;min-height:30px}
