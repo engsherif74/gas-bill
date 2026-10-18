@@ -11,35 +11,29 @@ export const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;'
 
 export const st = {
   S:[], by: new Map(), paid: new Set(), adv: new Map(), sel: new Set(),
-  sector:'', blk:'', bld:null, open:null, pager:false, all:false,
-  cycle:'', who:'', no:'0'
+  sector:'', blk:'', bld:null, open:null, pager:true, all:false,
+  cycle:'', who:'', no:'0',
+  filter: null,   // { kind:'sector'|'blk'|'bld'|'apt', op:'gte'|'lte'|'eq', value:number, matches:Set<string> }
+  filterSel: new Set()
 };
 
 const srt = (a,b)=>Number(a)-Number(b);
-const back = v => { document.getElementById('back').hidden = !v; };
+const back = v => { const b=document.getElementById('back'); if(b)b.hidden=!v; };
 const num = s => +String(s||'').replace(/[٠-٩]/g, d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 const due = s => Math.max(0, s.value - (st.adv.get(key(s))||0));
 const tot = a => totals(a, due);
 
-/* ====== إصلاح: paid = من سُدّد بالكامل (pay غير جزئي) ولم يبقَ له شيء ====== */
 export async function refresh(){
   const mn = await getManual();
   st.S = await all('subscribers');
   st.S.forEach(s=>{ const n = mn[key(s)]; if (n) s.name = n; });
   st.by = new Map(st.S.map(s=>[key(s), s]));
   const e = await list();
-  
-  // من عليه عمليات pay كاملة (غير جزئية)
   const fullPaid = new Set(e.filter(x => x.type === 'pay' && !x.partial).map(x => x.key));
-  
-  // من ما زال لديه مديونية في subscribers (بسبب سداد جزئي أو لم يُسدد)
   const stillDue = new Set(
     st.S.filter(s => (s.value || 0) > 0 || (s.count || 0) > 0).map(s => key(s))
   );
-  
-  // paid = من سُدّد بالكامل ولم يبقَ له شيء
   st.paid = new Set([...fullPaid].filter(k => !stillDue.has(k)));
-  
   st.adv = new Map((await all('advance')).map(v=>[v.key, v.balance]));
 }
 
@@ -50,6 +44,18 @@ export const toast = t => {
   e.textContent = t; e.className = 'show';
   setTimeout(()=>{ e.className = ''; }, 2600);
 };
+
+/* ====== تطبيق الفلترة ====== */
+export function setFilter(f){
+  st.filter = f;
+}
+export function clearFilter(){
+  st.filter = null;
+}
+export function inFilter(kind, k){
+  if (!st.filter) return false;
+  return st.filter.matches.has(kind + ':' + k);
+}
 
 export function receipt(e){
   const s = st.by.get(e.key) || {};
@@ -76,7 +82,8 @@ function aptsView(a){
     const nameHtml = s.name ? esc(s.name) : '<em class="empty-name">بدون اسم</em>';
     const advHtml = b ? `<span class="apt-adv">· مقدم ${money(b)}</span>` : '';
     const partial = (s.count || 0) > 1;
-    return `<div class="apt-card ${selected?'on':''}" data-card="${k}">
+    const isHi = st.filter && st.filter.kind === 'apt' && st.filter.matches.has('apt:' + k);
+    return `<div class="apt-card ${selected?'on':''} ${isHi?'hi':''}" data-card="${k}">
       <label class="apt-chk">
         <input type="checkbox" data-k="${k}" ${selected?'checked':''}>
       </label>
@@ -109,7 +116,6 @@ const bar = v => `<div class="bar">
   <button class="btn" id="pay" ${v.ch.length?'':'disabled'}>سداد المحدد</button>
 </div>`;
 
-/* ====== نافذة السداد الجزئي ====== */
 function partialDialog(s){
   return new Promise(resolve=>{
     const d = document.createElement('dialog');
@@ -117,17 +123,15 @@ function partialDialog(s){
     const maxCount = s.count || 1;
     const unitValue = maxCount > 0 ? Math.round((s.value / maxCount) * 100) / 100 : s.value;
     const mOpts = monthOptions(s);
-    
     let options = '';
     if (mOpts && mOpts.length > 1){
-      mOpts.forEach((opt, i)=>{
+      mOpts.forEach((opt)=>{
         options += `<button class="partial-opt" data-cnt="${opt.count}" data-amt="${opt.amount}">
           عدد ${opt.count} — ${money(opt.amount)} جنيه
           <small>${opt.label}</small>
         </button>`;
       });
     }
-    
     d.innerHTML = `
       <h3>سداد جزئي — شقة ${s.apt}</h3>
       <p class="mute">المديونية الحالية: ${s.count} فاتورة بقيمة ${money(s.value)} جنيه</p>
@@ -144,7 +148,6 @@ function partialDialog(s){
     `;
     document.body.append(d);
     d.showModal();
-    
     d.querySelector('#pCancel').onclick = ()=>{ d.close(); d.remove(); resolve(null); };
     d.querySelector('#pOk').onclick = ()=>{
       let count, amount;
@@ -192,7 +195,6 @@ function bind(el, a, v, again){
       ev.stopPropagation();
       const k = b.dataset.id, s = st.by.get(k);
       const act = b.dataset.act;
-      
       if (act === 'read'){
         const q = new URLSearchParams({n:s.name||'', s:s.sector, b:s.blk, d:s.bld, a:s.apt, v:s.value, r:st.adv.get(k)||0, q:due(s), c:s.count, m:st.cycle, u:st.who, k}).toString();
         openPage('reading.html', q);
@@ -251,91 +253,58 @@ export async function renderHome(el){
   const y = scrollY; back(false);
   if (!st.pager) st.bld = null;
   const w = work();
-  if (!st.S.length) return el.innerHTML = '<div class="card empty">لا توجد بيانات. اضغط «تحديث الملف» من تبويب «ما تم تحصيله».</div>';
+  if (!st.S.length) return el.innerHTML = '<div class="empty">لا توجد بيانات. اضغط «تحديث الملف» من تبويب «ما تم تحصيله».</div>';
   const secs = [...new Set(w.map(s=>s.sector))].sort(srt);
-  if (!secs.length) return el.innerHTML = '<div class="card empty">لا يوجد عملاء غير مسددين.</div>';
+  if (!secs.length) return el.innerHTML = '<div class="empty">لا يوجد عملاء غير مسددين.</div>';
   if (!secs.includes(st.sector)) st.sector = secs[0];
   const blks = [...new Set(w.filter(s=>s.sector===st.sector).map(s=>s.blk))].sort(srt);
   if (!blks.includes(st.blk)) st.blk = blks[0];
   const rows = w.filter(s=>s.sector===st.sector && s.blk===st.blk);
   const g = {}; rows.forEach(s=>(g[s.bld]=g[s.bld]||[]).push(s));
   const t = tot(rows);
-  const last = await get('lastPosition','last');
-  const hasLast = last && w.some(s=>s.sector===last.sector && s.blk===last.blk && s.bld===last.bld);
   const opt = (a,v)=>a.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
   let ov = null;
-  
-  // قائمة العمارات مرتبة
-  const blds = Object.keys(g).sort(srt);
-  const curIdx = blds.indexOf(String(st.bld));
-  
-  // أزرار السابق/التالي في وضع الصفحات
-  let pagerNav = '';
-  if (st.pager){
-    pagerNav = `<div class="pager-nav">
-      <button class="btn ghost sm" id="prevBld" ${curIdx <= 0 ? 'disabled' : ''}>→ السابق</button>
-      <input id="bldJump" type="number" placeholder="عمارة" value="${st.open || ''}" min="1" class="bld-jump">
-      <button class="btn ghost sm" id="nextBld" ${curIdx < 0 || curIdx >= blds.length - 1 ? 'disabled' : ''}>التالي ←</button>
-    </div>`;
-  }
-  
-  let html = `<div class="pick"><label class="field"><span>القطاع</span><select id="sSec">${opt(secs,st.sector)}</select></label><label class="field"><span>البلوك</span><select id="sBlk">${opt(blks,st.blk)}</select></label></div>
-    <div class="tools"><button class="btn ghost sm" id="pg">${st.pager?'إيقاف عرض الصفحات':'عرض كصفحات'}</button>
-    ${hasLast?`<button class="btn sm" id="rs">استكمال (${last.sector}-${last.blk}-${last.bld})</button>`:''}
-    </div>
-    ${pagerNav}
-    <p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p><div class="blist">`;
-  
+
+  let html = `<div class="pick">
+    <label class="field"><span>القطاع</span><select id="sSec">${opt(secs,st.sector)}</select></label>
+    <label class="field"><span>البلوك</span><select id="sBlk">${opt(blks,st.blk)}</select></label>
+    <label class="field"><span>عمارة (اختياري)</span><input id="bldIn" type="number" min="1" placeholder="رقم العمارة" value="${st.open||''}"></label>
+  </div>
+  <p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p><div class="blist">`;
+
   Object.keys(g).sort(srt).forEach(b=>{
-    const x = tot(g[b]), o = st.pager && st.open === b;
+    const x = tot(g[b]), o = st.open === b;
+    const isHi = st.filter && st.filter.kind === 'bld' && st.filter.matches.has('bld:' + st.sector + '|' + st.blk + '|' + b);
     const cells = `<b>عمارة ${b}</b><span>${x.n} شقة</span><span>${x.count} فاتورة</span><strong>${money(x.value)}</strong>`;
-    if (st.pager){
-      html += `<div class="brow prow ${o?'open':''}" data-b="${b}" role="button" tabindex="0">${cells}</div>`;
-    } else {
-      html += `<button class="brow" data-b="${b}">${cells}</button>`;
-    }
+    html += `<div class="brow prow ${o?'open':''} ${isHi?'hi':''}" data-b="${b}" role="button" tabindex="0">${cells}</div>`;
     if (o){
       st.bld = b;
       const aa = g[b].sort((p,q)=>srt(p.apt,q.apt));
       ov = {a:aa, v:aptsView(aa)};
-      html += `<div class="card apts">${ov.v.html}</div>`;
+      html += `<div class="apts">${ov.v.html}</div>`;
     }
   });
   el.innerHTML = html + '</div>' + (ov ? bar(ov.v) : '');
-  
+
   el.querySelector('#sSec').onchange = e=>{ st.sector = e.target.value; st.open = null; renderHome(el); };
   el.querySelector('#sBlk').onchange = e=>{ st.blk = e.target.value; st.open = null; renderHome(el); };
-  el.querySelector('#pg').onclick = ()=>{ st.pager = !st.pager; st.open = null; st.sel.clear(); renderHome(el); };
-  
-  const rs = el.querySelector('#rs');
-  if (rs) rs.onclick = ()=>{
-    st.sector = last.sector; st.blk = last.blk; st.sel.clear();
-    if (st.pager){ st.open = last.bld; renderHome(el); }
-    else { st.bld = last.bld; history.pushState({v:'bld'}, ''); renderBuilding(el); }
+  const bldIn = el.querySelector('#bldIn');
+  bldIn.onchange = ()=>{
+    const v = String(bldIn.value).trim();
+    if (!v) { st.open = null; renderHome(el); return; }
+    if (g[v]){ st.open = v; st.bld = v; renderHome(el); }
+    else {
+      const inPaid = st.S.some(s => s.sector===st.sector && s.blk===st.blk && s.bld===v && st.paid.has(key(s)));
+      if (inPaid) toast('العمارة مسددة بالكامل');
+      else toast('لا توجد في السجلات');
+    }
   };
-  
-  // أزرار السابق/التالي
-  const prevBtn = el.querySelector('#prevBld');
-  if (prevBtn) prevBtn.onclick = ()=>{
-    if (curIdx > 0){ st.open = blds[curIdx - 1]; st.bld = st.open; renderHome(el); }
-  };
-  const nextBtn = el.querySelector('#nextBld');
-  if (nextBtn) nextBtn.onclick = ()=>{
-    if (curIdx >= 0 && curIdx < blds.length - 1){ st.open = blds[curIdx + 1]; st.bld = st.open; renderHome(el); }
-  };
-  
-  // الانتقال لعمارة محددة
-  const jumpIn = el.querySelector('#bldJump');
-  if (jumpIn) jumpIn.onchange = ()=>{
-    const val = String(jumpIn.value).trim();
-    if (blds.includes(val)){ st.open = val; st.bld = val; renderHome(el); }
-    else toast('عمارة غير موجودة في هذا البلوك');
-  };
-  
+
   el.querySelectorAll('[data-b]').forEach(b=>b.onclick = ()=>{
     st.sel.clear();
-    if (st.pager){ st.open = st.open===b.dataset.b?null:b.dataset.b; st.bld = st.open; renderHome(el); }
-    else { st.bld = b.dataset.b; history.pushState({v:'bld'}, ''); renderBuilding(el); }
+    st.open = st.open===b.dataset.b?null:b.dataset.b;
+    st.bld = st.open;
+    renderHome(el);
   });
   if (ov) bind(el, ov.a, ov.v, ()=>renderHome(el));
   scrollTo(0, y);
@@ -346,7 +315,7 @@ export function renderBuilding(el){
   const a = work().filter(s=>s.sector===st.sector && s.blk===st.blk && s.bld===st.bld).sort((p,q)=>srt(p.apt,q.apt));
   if (!a.length) return history.back();
   const v = aptsView(a);
-  el.innerHTML = `<div class="card">${v.html}</div>${bar(v)}`;
+  el.innerHTML = `${v.html}${bar(v)}`;
   bind(el, a, v, ()=>renderBuilding(el));
 }
 
@@ -355,19 +324,17 @@ export async function renderLedger(el, reload, exp){
   const e = await list();
   const td = e.filter(x=>ldate(x.time)===ldate(new Date()));
   const sum = td.reduce((s,x)=>s+x.amount, 0);
-  el.innerHTML = `<div class="card"><h2>اليوم: ${td.length} عملية · ${money(sum)} جنيه</h2></div>
-  <div class="ledger-list">` +
+  el.innerHTML = `<div class="ledger-list">` +
     (e.map(x=>{
       const s = st.by.get(x.key) || {};
-      const amt = x.amount || 0;
       return `<div class="led-row">
         <div class="led-main">
           <span class="led-apt">${s.apt || '?'}</span>
           <div class="led-info">
-            <div class="led-name">${esc(s.name || 'بدون اسم')}${x.type==='advance'?' <em class="tag">مقدم</em>':''}${x.partial?' <em class="tag">جزئي</em>':''}</div>
+            <div class="led-name">${esc(s.name || 'بدون اسم')}${x.type==='advance'?' <em class="tag">مقدم</em>':''}${x.partial?' <em class="tag">جزئي</em>':''}${x.personal?' <em class="tag">شخصي</em>':''}</div>
             <div class="led-meta">قطاع ${s.sector||''} · بلوك ${s.blk||''} · عمارة ${s.bld||''} · ${new Date(x.time).toLocaleString('ar-EG',{dateStyle:'short',timeStyle:'short'})}</div>
           </div>
-          <div class="led-amount">${money(amt)}</div>
+          <div class="led-amount">${money(x.amount)}</div>
           <div class="led-menu-wrap">
             <button class="menu-dots" data-m="${x.id}">⋮</button>
             <div class="menu-pop" data-pop="${x.id}" hidden>
@@ -380,7 +347,7 @@ export async function renderLedger(el, reload, exp){
       </div>`;
     }).join('') || '<p class="mute">لا توجد تحصيلات.</p>') +
   `</div>
-  <div class="card"><div class="actions"><button class="btn" id="ex">إرسال الأرشيف</button><button class="btn ghost" id="rl">تحديث الملف</button></div></div>`;
+  <div class="actions" style="margin-top:1rem"><button class="btn" id="ex">إرسال الأرشيف</button><button class="btn ghost" id="rl">تحديث الملف</button></div>`;
 
   el.querySelectorAll('[data-m]').forEach(btn=>{
     btn.onclick = ev=>{
@@ -413,6 +380,7 @@ export async function renderLedger(el, reload, exp){
       if (act === 'advance'){
         const s = st.by.get(entry.key);
         if (!s) return;
+        if ((s.value||0) > 0){ toast('لا يمكن السداد المقدم لعميل ما زال عليه مديونية'); return; }
         const x = num(prompt('مبلغ السداد المقدم'));
         if (x > 0){ await addAdvance(st.no, s, x); await refresh(); toast(`سُجّل مقدم ${money(x)} جنيه`); renderLedger(el, reload, exp); }
       }
