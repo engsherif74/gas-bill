@@ -5,6 +5,7 @@ import {totals} from './payment.js';
 import {openPage} from './buttons.js';
 import {getManual,saveManual} from './names.js';
 import {choose} from './personal.js';
+import {monthsFor,monthOptions} from './monthly.js';
 
 export const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -20,17 +21,20 @@ const num = s => +String(s||'').replace(/[٠-٩]/g, d=>'٠١٢٣٤٥٦٧٨٩'.in
 const due = s => Math.max(0, s.value - (st.adv.get(key(s))||0));
 const tot = a => totals(a, due);
 
+/* إصلاح: paid = المشتركين الذين ليس لديهم أي مديونية (value=0 و count=0) */
 export async function refresh(){
   const mn = await getManual();
   st.S = await all('subscribers');
   st.S.forEach(s=>{ const n = mn[key(s)]; if (n) s.name = n; });
   st.by = new Map(st.S.map(s=>[key(s), s]));
-  const e = await list();
-  st.paid = new Set(e.filter(x=>x.type==='pay').map(x=>x.key));
+  // paid = من ليس لديه مديونية (سُدّد بالكامل)
+  st.paid = new Set(
+    st.S.filter(s => (s.value || 0) <= 0 && (s.count || 0) <= 0).map(s => key(s))
+  );
   st.adv = new Map((await all('advance')).map(v=>[v.key, v.balance]));
 }
 
-export const work = ()=> st.S.filter(s=>(st.all||s.inRoute) && !st.paid.has(key(s)));
+export const work = ()=> st.S.filter(s => (st.all || s.inRoute) && !st.paid.has(key(s)));
 
 export const toast = t => {
   const e = document.getElementById('toast');
@@ -55,16 +59,13 @@ export function receipt(e){
   w.document.close();
 }
 
-/* ====== بطاقات الشقق داخل العمارة ====== */
 function aptsView(a){
   const ch = a.filter(s=>st.sel.has(key(s)));
   const ct = tot(ch), allTot = tot(a);
   const cards = a.map(s=>{
     const k = key(s), b = st.adv.get(k)||0, selected = st.sel.has(k);
-    const nameHtml = s.name
-      ? esc(s.name)
-      : '<em class="empty-name">بدون اسم</em>';
-    const advHtml = b ? `<div class="apt-adv">مقدم ${money(b)}</div>` : '';
+    const nameHtml = s.name ? esc(s.name) : '<em class="empty-name">بدون اسم</em>';
+    const advHtml = b ? `<span class="apt-adv">· مقدم ${money(b)}</span>` : '';
     const partial = (s.count || 0) > 1;
     return `<div class="apt-card ${selected?'on':''}" data-card="${k}">
       <label class="apt-chk">
@@ -100,24 +101,20 @@ const bar = v => `<div class="bar">
 </div>`;
 
 /* ====== نافذة السداد الجزئي ====== */
-function partialDialog(s, k, advMap){
+function partialDialog(s, k){
   return new Promise(resolve=>{
     const d = document.createElement('dialog');
     d.className = 'partial-dialog';
     const maxCount = s.count || 1;
     const unitValue = maxCount > 0 ? Math.round((s.value / maxCount) * 100) / 100 : s.value;
+    const mOpts = monthOptions(s);
     
-    // خيارات السداد الجزئي
     let options = '';
-    if (s.invoices && Array.isArray(s.invoices) && s.invoices.length > 1){
-      // الحالة 2: البيانات متوفرة (فواتير مفصلة)
-      let cumulative = 0;
-      s.invoices.forEach((inv, i)=>{
-        cumulative += (inv.amount || 0);
-        const cnt = i + 1;
-        options += `<button class="partial-opt" data-cnt="${cnt}" data-amt="${cumulative}">
-          عدد ${cnt} — ${money(cumulative)} جنيه
-          <small>${inv.month || ('فاتورة ' + (i+1))}</small>
+    if (mOpts && mOpts.length > 1){
+      mOpts.forEach((opt, i)=>{
+        options += `<button class="partial-opt" data-cnt="${opt.count}" data-amt="${opt.amount}">
+          عدد ${opt.count} — ${money(opt.amount)} جنيه
+          <small>${opt.label}</small>
         </button>`;
       });
     }
@@ -157,7 +154,6 @@ function partialDialog(s, k, advMap){
       d.close(); d.remove();
       resolve({count, amount});
     };
-    // اختيار خيار
     d.querySelectorAll('.partial-opt').forEach(b=>{
       b.onclick = ()=>{
         d.querySelectorAll('.partial-opt').forEach(x=>x.classList.remove('selected'));
@@ -168,12 +164,10 @@ function partialDialog(s, k, advMap){
 }
 
 function bind(el, a, v, again){
-  // checkbox
   el.querySelectorAll('[data-k]').forEach(c=>c.onchange = ()=>{ c.checked?st.sel.add(c.dataset.k):st.sel.delete(c.dataset.k); again(); });
   const allCb = el.querySelector('#all');
   if (allCb) allCb.onchange = e => { a.forEach(s=>e.target.checked?st.sel.add(key(s)):st.sel.delete(key(s))); again(); };
 
-  // القائمة المنسدلة ⋮
   el.querySelectorAll('[data-m]').forEach(btn=>{
     btn.onclick = ev=>{
       ev.stopPropagation();
@@ -184,7 +178,6 @@ function bind(el, a, v, again){
   });
   document.addEventListener('click', ()=>{ el.querySelectorAll('[data-pop]').forEach(p=>p.hidden = true); });
 
-  // إجراءات القائمة
   el.querySelectorAll('[data-act]').forEach(b=>{
     b.onclick = async ev=>{
       ev.stopPropagation();
@@ -206,7 +199,7 @@ function bind(el, a, v, again){
         }
       }
       if (act === 'partial'){
-        const res = await partialDialog(s, k, st.adv);
+        const res = await partialDialog(s, k);
         if (res){
           await partialPay(st.no, s, res, st.adv);
           await refresh();
@@ -218,7 +211,6 @@ function bind(el, a, v, again){
     };
   });
 
-  // السداد بالضغط على القيمة فقط
   el.querySelectorAll('[data-p]').forEach(btn=>btn.onclick = async ev=>{
     ev.stopPropagation();
     const k = btn.dataset.p, s = st.by.get(k), amt = due(s);
@@ -310,7 +302,6 @@ export function renderBuilding(el){
   bind(el, a, v, ()=>renderBuilding(el));
 }
 
-/* ====== صفحة ما تم تحصيله ====== */
 export async function renderLedger(el, reload, exp){
   back(false); await refresh();
   const e = await list();

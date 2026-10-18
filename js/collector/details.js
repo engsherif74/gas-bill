@@ -3,6 +3,7 @@ import {personalCards} from './personal.js';
 import {money} from '../core/utils.js';
 import {list,ldate} from './ledger.js';
 import {st,esc,work,refresh} from './browse.js';
+import {monthsFor} from './monthly.js';
 
 const grp = (a,f)=>a.reduce((m,x)=>{ (m[f(x)]=m[f(x)]||[]).push(x); return m; }, {});
 const sum = a=>a.reduce((s,x)=>s+x.amount, 0);
@@ -19,6 +20,27 @@ export async function renderArchive(el){
   const m = Object.keys(mons).sort().reverse().map(k=>{ const dd = grp(mons[k], x=>ldate(x.time)); return `<details><summary>${k} · ${Object.keys(dd).length} يوم · <b>${money(sum(mons[k]))}</b></summary>${tbl(['اليوم','العمليات','المجموع'], Object.keys(dd).sort().map(x=>[x,dd[x].length,money(sum(dd[x]))]))}</details>`; }).join('')||'<p class="mute">لا يوجد.</p>';
   el.innerHTML = `<div class="card"><h2>الأرشيف اليومي</h2>${d}</div><div class="card"><h2>الأرشيف الشهري</h2>${m}</div>`;
   await personalCards(el, e, ()=>renderArchive(el));
+}
+
+/* ====== أرشيف الشهور ====== */
+export async function renderMonthlyArchive(el){
+  await refresh();
+  const allSubs = st.S.filter(s=>(s.value || 0) > 0 && (s.count || 0) > 1);
+  const rows = [];
+  for (const s of allSubs.slice(0, 200)){
+    const inv = await monthsFor(s);
+    if (inv && inv.length){
+      rows.push([esc(s.name || 'بدون اسم'), s.sector + '-' + s.blk + '-' + s.bld + '-' + s.apt, money(s.value), s.count, inv.map(i=>`${i.month || '?'}: ${money(i.amount)}`).join(' · ')]);
+    } else {
+      rows.push([esc(s.name || 'بدون اسم'), s.sector + '-' + s.blk + '-' + s.bld + '-' + s.apt, money(s.value), s.count, '<em class="mute">لا شهور مسجلة</em>']);
+    }
+  }
+  el.innerHTML = `<div class="card"><h2>أرشيف الشهور — العملاء ذوو المديونيات المتعددة</h2>
+    <p class="mute">هذه القائمة تعرض العملاء الذين لديهم أكثر من فاتورة، مع محاولة استخراج الشهور من السجلات القديمة. تُستخدم هذه الشهور لتوفير خيارات السداد الجزئي في صفحة التحصيل.</p>
+    ${rows.length ? tbl(['العميل','العنوان','القيمة الإجمالية','عدد الفواتير','الشهور المتاحة'], rows) : '<p class="mute">لا يوجد عملاء بمديونيات متعددة.</p>'}
+    <div class="actions" style="margin-top:1rem"><button class="btn ghost" id="backDetails">رجوع للتفاصيل</button></div>
+  </div>`;
+  el.querySelector('#backDetails').onclick = ()=>renderDetails(el, ()=>show('home'));
 }
 
 export async function renderDetails(el, goHome){
@@ -41,10 +63,13 @@ export async function renderDetails(el, goHome){
 <details><summary>تسديدات خارج النطاق</summary>${oor.length?tbl(['العميل','المبلغ','التاريخ'], oor.map(x=>[who(x),money(x.amount),ldate(x.time)])):'<p class="mute">لا يوجد.</p>'}</details>
 <details><summary>سداد من مصدر آخر</summary>${os.length?tbl(['العميل','المبلغ','التاريخ','كامل؟'], os.map(x=>[esc(x.name||'بدون اسم'),money(x.amount),x.date,x.full?'نعم':'جزئي'])):'<p class="mute">لا يوجد.</p>'}</details>
 <details><summary>سجل السداد المقدم</summary>${ad.length?tbl(['العميل','المبلغ','الرصيد الحالي','التاريخ'], ad.map(x=>[who(x),money(x.amount),money(st.adv.get(x.key)||0),ldate(x.time)])):'<p class="mute">لا يوجد.</p>'}</details>
-<p class="mute">السجل اليومي والشهري في تبويب «الأرشيف».</p></div>`;
+<p class="mute">السجل اليومي والشهري في تبويب «الأرشيف».</p>
+<div class="actions" style="margin-top:1rem"><button class="btn ghost" id="monthlyArc">أرشيف الشهور</button></div>
+</div>`;
   el.querySelectorAll('[data-go]').forEach(b=>b.onclick = ()=>{
     const p = b.dataset.go.split('|');
     st.sector = p[0]; st.blk = p[1]; st.open = null;
     goHome();
   });
+  el.querySelector('#monthlyArc').onclick = ()=>renderMonthlyArchive(el);
 }

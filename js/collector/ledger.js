@@ -18,13 +18,6 @@ export async function pay(no, subs, adv){
 }
 
 /* ====== سداد جزئي ====== */
-/* 
-  partialPay(no, s, {count, amount}, adv)
-  - count: عدد الفواتير المسددة
-  - amount: القيمة المسددة
-  - يخصم من قيمة المشترك (value) وعدد فواتيره (count)
-  - إذا أصبح count = 0 أو value = 0، يُعتبر مسدداً بالكامل ويُسجّل في الأرشيف
-*/
 export async function partialPay(no, s, {count, amount}, adv){
   const k = keyOf(s);
   const b = adv.get(k) || 0;
@@ -32,7 +25,6 @@ export async function partialPay(no, s, {count, amount}, adv){
   const id = uid(no);
   const time = new Date().toISOString();
   
-  // تسجيل العملية في الأرشيف
   await put('ledger', id, {
     id, no, type:'pay', key:k,
     amount: amount - useAdv,
@@ -44,12 +36,10 @@ export async function partialPay(no, s, {count, amount}, adv){
     partial: true
   });
   
-  // خصم من رصيد المقدم إن وجد
   if (useAdv){
     await put('advance', k, {key:k, balance: b - useAdv});
   }
   
-  // تحديث المشترك: خصم العدد والقيمة
   const newCount = Math.max(0, (s.count || 0) - count);
   const newValue = Math.max(0, (s.value || 0) - amount);
   await put('subscribers', k, {
@@ -73,7 +63,6 @@ export async function undo(e){
   if (e.type === 'pay' && e.fromAdvance) await put('advance', e.key, {key:e.key, balance:b + e.fromAdvance});
   if (e.type === 'advance') await put('advance', e.key, {key:e.key, balance:Math.max(0, b - e.amount)});
   
-  // إذا كان سداداً جزئياً، نُعيد العدد والقيمة للمشترك
   if (e.type === 'pay' && e.partial){
     const s = await get('subscribers', e.key);
     if (s){
