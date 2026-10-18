@@ -714,4 +714,405 @@ function calculateInternal(){
     const startMonth = (s % 12) + 1;
     const fromText = fmtMonthYear(startYear, startMonth);
 
-    const endYear = Math.floor(e
+    const endYear = Math.floor(e/12);
+    const endMonth = (e % 12) + 1;
+    const toText = fmtMonthYear(endYear, endMonth);
+
+    rows.push({
+      fromText, toText,
+      months: overlap,
+      monthlyCost: res.cost,
+      subtotal: sub,
+      tierRows: res.rows,
+      avg: avg
+    });
+  }
+
+  const exactGrandTotal = totalConsumptionCost + fees;
+  const grandTotal = Math.round(exactGrandTotal);
+  const grandTotalWords = getAmountInWords(grandTotal);
+
+  return {
+    months, cons, fees, avg, rows,
+    inputMode,
+    prevReading, currReading,
+    totalConsumptionCost, grandTotal, exactGrandTotal,
+    totalCovered, billPeriodText, grandTotalWords
+  };
+}
+
+/* ============================================================
+   حساب الفاتورة عند الضغط على الزر
+============================================================ */
+function performCalculation(){
+  if (!inputMode){
+    alert('⚠️ يرجى اختيار طريقة إدخال الاستهلاك أولاً');
+    return;
+  }
+
+  if (inputMode === 'readings'){
+    const prev = Number(document.getElementById('prevReading').value) || 0;
+    const curr = Number(document.getElementById('currReading').value) || 0;
+    if (curr < prev){
+      alert('⚠️ لا يجوز أن تكون القراءة الحالية أقل من القراءة السابقة');
+      return;
+    }
+  }
+
+  const r = calculateInternal();
+  if (r.error){
+    alert('⚠️ بيانات غير صحيحة');
+    return;
+  }
+
+  showResult(r);
+}
+
+/* ============================================================
+   عرض الأسعار المطبقة حالياً
+============================================================ */
+function showCurrentPrices(){
+  const sorted = [...periods].sort((a,b)=> a.date.localeCompare(b.date));
+  if (!sorted.length) return;
+
+  const latest = sorted[sorted.length - 1];
+  const startDate = parseDate(latest.date);
+  const startText = fmtMonthYear(startDate.y, startDate.m);
+
+  let tableRows = '';
+  latest.tiers.forEach(t=>{
+    const displayName = getTierDisplayName(t.name);
+    const tierLabel = `شريحة ${displayName}`;
+    const limitDisplay = (t.limit === null || t.limit === undefined || t.limit === '') ? '∞' : smartFmt(t.limit);
+    tableRows += `
+      <tr>
+        <td>${tierLabel}</td>
+        <td style="direction:ltr;">${limitDisplay}</td>
+        <td style="direction:ltr;">${smartFmt(t.price)}</td>
+      </tr>`;
+  });
+
+  const html = `
+    <div class="modal-overlay" id="pricesModal">
+      <div class="prices-modal">
+        <div class="prices-modal-header">
+          <div class="pm-title">💰 الأسعار المطبقة حالياً</div>
+          <div class="pm-sub">📅 سارية من ${startText}</div>
+        </div>
+        <div class="prices-modal-body">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>الشريحة</th>
+                <th>الأمتار</th>
+                <th>السعر</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+          <div style="margin-top:14px;padding:12px;background:#ccfbf1;border-radius:10px;text-align:center;font-weight:800;color:#0f766e;font-size:13.5px;border:1px solid #5eead4;">
+            الرسوم: ${smartFmt(fees)} ج.م
+          </div>
+        </div>
+        <div class="prices-modal-footer">
+          <button class="btn-close" id="closePricesModal" style="width:100%;">إغلاق</button>
+        </div>
+      </div>
+    </div>`;
+
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div.firstElementChild);
+
+  document.getElementById('closePricesModal').onclick = ()=>{
+    document.getElementById('pricesModal').remove();
+  };
+  document.getElementById('pricesModal').addEventListener('click', e=>{
+    if (e.target.id === 'pricesModal') e.target.remove();
+  });
+}
+
+/* ============================================================
+   عرض النتيجة
+============================================================ */
+function showResult(r){
+  const isSinglePeriod = (r.rows.length === 1);
+  const isSingleMonth = (r.months === 1);
+
+  let inputsRowsHtml = '';
+  if (r.inputMode === 'readings'){
+    inputsRowsHtml = `
+      <div class="sb-row">
+        <span class="sb-label">عدد أشهر المحاسبة</span>
+        <span class="sb-value">${r.months}</span>
+      </div>
+      <div class="sb-row">
+        <span class="sb-label">القراءة السابقة</span>
+        <span class="sb-value">${smartFmt(r.prevReading)}</span>
+      </div>
+      <div class="sb-row">
+        <span class="sb-label">القراءة الحالية</span>
+        <span class="sb-value">${smartFmt(r.currReading)}</span>
+      </div>
+      <div class="sb-row">
+        <span class="sb-label">الاستهلاك</span>
+        <span class="sb-value">${smartFmt(r.cons)} m³</span>
+      </div>
+    `;
+  } else {
+    inputsRowsHtml = `
+      <div class="sb-row">
+        <span class="sb-label">عدد أشهر المحاسبة</span>
+        <span class="sb-value">${r.months}</span>
+      </div>
+      <div class="sb-row">
+        <span class="sb-label">الاستهلاك</span>
+        <span class="sb-value">${smartFmt(r.cons)} m³</span>
+      </div>
+    `;
+  }
+
+  const summaryHtml = `
+    <div class="summary-box">
+      <div class="sb-title">📋 البيانات المُدخَلة</div>
+      ${inputsRowsHtml}
+    </div>`;
+
+  let detailsHtml = '';
+
+  if (!isSinglePeriod){
+    detailsHtml += `
+      <div style="background:#fef3c7;color:#92400e;font-weight:700;font-size:12px;padding:8px 12px;border-radius:8px;text-align:center;margin-bottom:12px;">
+        ⚠️ كل فترة زمنية محسوبة طبقا للأسعار المقررة لتلك الفترة
+      </div>`;
+  }
+
+  r.rows.forEach((row, idx)=>{
+    let periodLabel = '';
+    if (!isSinglePeriod){
+      const arabicNumName = ArabicPeriodNames[idx + 1] || (idx + 1);
+      periodLabel = `الفترة ${arabicNumName}:`;
+    }
+
+    let tableRowsHtml = '';
+    row.tierRows.forEach(tr=>{
+      tableRowsHtml += `
+        <tr>
+          <td>${tr.tierName}</td>
+          <td style="direction:ltr;">${smartFmt(tr.meters)}</td>
+          <td style="direction:ltr;">${smartFmt(tr.price)}</td>
+          <td style="direction:ltr;">${smartFmt(tr.total)}</td>
+        </tr>`;
+    });
+
+    detailsHtml += `
+      <div style="background:#f8fafc;padding:12px;border-radius:12px;margin-bottom:12px;border:1px solid #e2e8f0;">
+        <div class="period-header-row" style="display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:13px;color:#0f766e;margin-bottom:8px;">
+          <span>${periodLabel}</span>
+          <span>أشهر المحاسبة ${row.months}</span>
+        </div>
+        ${!isSinglePeriod ? `
+          <div style="font-size:12px;color:#334155;margin:8px 0;font-weight:600;text-align:center;">
+            من شهر ${row.fromText} إلى شهر ${row.toText}
+          </div>` : ''}
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>الشريحة</th>
+              <th>الأمتار</th>
+              <th>السعر</th>
+              <th>الإجمالي</th>
+            </tr>
+          </thead>
+          <tbody>${tableRowsHtml}</tbody>
+        </table>
+        ${!isSingleMonth ? `
+          <div style="font-size:12px;color:#0f766e;font-weight:700;text-align:left;background:#fff;padding:8px;border-radius:6px;border:1px solid #cbd5e1;display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+            <span>مبلغ الاستهلاك لشهر واحد فقط</span>
+            <span style="direction:ltr;font-size:13px;">${smartFmt(row.monthlyCost)} ج.م</span>
+          </div>` : ''}
+      </div>`;
+  });
+
+  if (!isSingleMonth){
+    detailsHtml += `
+      <div style="background:#ccfbf1;color:#0f766e;font-weight:700;font-size:13px;padding:8px 12px;border-radius:8px;text-align:center;margin:12px 0 10px;">
+        حساب الفاتورة الإجمالية
+      </div>
+      <table class="custom-table">
+        <thead>
+          <tr>
+            ${!isSinglePeriod ? `<th>الفترة</th>` : ''}
+            <th>الشهور</th>
+            <th>تكلفة الشهر</th>
+            <th>الإجمالي</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+    r.rows.forEach((row, idx)=>{
+      const periodLabel = `الفترة ${ArabicPeriodNames[idx+1] || (idx+1)}`;
+      detailsHtml += `
+        <tr>
+          ${!isSinglePeriod ? `<td>${periodLabel}</td>` : ''}
+          <td>${row.months}</td>
+          <td style="direction:ltr;">${smartFmt(row.monthlyCost)}</td>
+          <td style="direction:ltr;">${smartFmt(row.subtotal)}</td>
+        </tr>`;
+    });
+
+    detailsHtml += `
+          <tr>
+            <td colspan="${!isSinglePeriod ? '3' : '2'}" style="text-align:right;font-weight:700;">الرسوم</td>
+            <td style="direction:ltr;">${smartFmt(r.fees)}</td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="${!isSinglePeriod ? '3' : '2'}" style="text-align:right;">الإجمالي</td>
+            <td style="direction:ltr;text-align:center;">${smartFmt(r.grandTotal)} ج.م</td>
+          </tr>
+        </tbody>
+      </table>`;
+  } else {
+    detailsHtml += `
+      <table class="custom-table" style="margin-top:12px;">
+        <tbody>
+          <tr>
+            <td style="text-align:right;font-weight:700;">تكلفة الاستهلاك</td>
+            <td style="direction:ltr;text-align:left;width:120px;font-weight:700;">${smartFmt(r.totalConsumptionCost)} ج.م</td>
+          </tr>
+          <tr>
+            <td style="text-align:right;font-weight:700;">الرسوم</td>
+            <td style="direction:ltr;text-align:left;font-weight:700;">${smartFmt(r.fees)} ج.م</td>
+          </tr>
+          <tr class="total-row">
+            <td style="text-align:right;">إجمالى الفاتورة</td>
+            <td style="direction:ltr;text-align:left;">${smartFmt(r.grandTotal)} ج.م</td>
+          </tr>
+        </tbody>
+      </table>`;
+  }
+
+  let warning = '';
+  if (r.totalCovered !== r.months){
+    warning = `<div class="warning">⚠️ الأشهر المُغطاة لا تساوي عدد أشهر المحاسبة.</div>`;
+  }
+
+  let avgBoxHtml = '';
+  if (!isSingleMonth){
+    avgBoxHtml = `
+      <div class="avg-box">
+        <div class="title">متوسط الاستهلاك الشهرى</div>
+        <div>الاستهلاك / أشهر المحاسبة</div>
+        <div>${smartFmt(r.cons)} ÷ ${r.months}</div>
+        <div class="result">${smartFmt(r.avg)} m³</div>
+      </div>`;
+  }
+
+  const html = `
+    <div class="modal-overlay" id="resultModal">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="bill-title">📅 ${r.billPeriodText}</div>
+          <div class="label">إجمالي الفاتورة</div>
+          <div class="total">${smartFmt(r.grandTotal)}</div>
+          <div class="total-words">${r.grandTotalWords}</div>
+        </div>
+        <div class="modal-body show" id="modalDetailsBody" style="padding-top:16px;">
+          ${summaryHtml}
+          <div id="detailsWrapper" style="display:none;">
+            ${avgBoxHtml}
+            ${detailsHtml}
+            ${warning}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-toggle-details" id="toggleDetailsBtn" onclick="toggleResultDetails()">
+            📋 عرض التفاصيل الكاملة
+          </button>
+          <button class="btn-close" id="closeModal">إغلاق</button>
+        </div>
+      </div>
+    </div>`;
+
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div.firstElementChild);
+
+  document.getElementById('closeModal').onclick = ()=>{
+    document.getElementById('resultModal').remove();
+  };
+  document.getElementById('resultModal').addEventListener('click', e=>{
+    if (e.target.id === 'resultModal') e.target.remove();
+  });
+}
+
+/* ============================================================
+   تبديل عرض التفاصيل داخل نافذة النتيجة
+============================================================ */
+function toggleResultDetails(){
+  const wrapper = document.getElementById('detailsWrapper');
+  const btn = document.getElementById('toggleDetailsBtn');
+  if (!wrapper || !btn) return;
+
+  const isHidden = (wrapper.style.display === 'none');
+  if (isHidden){
+    wrapper.style.display = 'block';
+    btn.textContent = '🔼 إخفاء التفاصيل';
+  } else {
+    wrapper.style.display = 'none';
+    btn.textContent = '📋 عرض التفاصيل الكاملة';
+  }
+}
+
+/* ============================================================
+   تحديث الرأس
+============================================================ */
+function updateHeader(){
+  const now = new Date();
+  const monthName = now.toLocaleDateString('ar-EG', {month:'long', year:'numeric'});
+  document.getElementById('currentMonth').textContent = `الشهر الحالي: ${monthName}`;
+
+  const sorted = [...periods].sort((a,b)=> b.date.localeCompare(a.date));
+  if (sorted.length){
+    document.getElementById('updatedLabel').textContent = `آخر تحديث للأسعار في ${fmtDateAr(sorted[0].date)}`;
+  }
+}
+
+/* ============================================================
+   تحديث بطاقة المطور حسب اللغة
+============================================================ */
+function updateDeveloperBadge(){
+  const titleEl = document.getElementById('devTitle');
+  const nameEl = document.getElementById('devName');
+  const descEl = document.getElementById('devDesc');
+
+  titleEl.textContent = 'إعداد وتطوير';
+  nameEl.textContent = 'شريف محمد نشأت محمد';
+  descEl.textContent = 'تطبيق ذكي ومتقن دقيق الحسابات، مصمم خصيصاً ليقدم تجربة سهلة وسريعة تخدم كلًا من المحصل والعميل بكل شفافية وموثوقية.';
+}
+
+/* ============================================================
+   ربط الأحداث
+============================================================ */
+['months', 'consumption', 'prevReading', 'currReading'].forEach(id=>{
+  const el = document.getElementById(id);
+  if (el){
+    el.addEventListener('input', function(){
+      if (id === 'prevReading' || id === 'currReading') updateConsumptionFromReadings();
+    });
+  }
+});
+
+/* ============================================================
+   التشغيل الأولي
+============================================================ */
+(function init(){
+  periods = loadPeriods();
+  fees = loadFees();
+  updateHeader();
+  updateDeveloperBadge();
+  inputMode = null;
+})();
+</script>
+</body>
+</html>
