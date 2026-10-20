@@ -68,6 +68,7 @@ async function reload(){
     st.cycle = f2.cycle;
     renderMenu();
     if ($('who')) $('who').textContent = `${a.name} · إصدار ${f2.cycle}`;
+    if ($('upd')) $('upd').hidden = true;
     show(tab);
   }catch(e){ toast('خطأ: ' + e.message); console.error(e); }
 }
@@ -200,6 +201,9 @@ if ($('theme')) {
     setTheme(t);
   };
 }
+
+// تفعيل زر تحميل الملف الجديد
+if ($('updBtn')) $('updBtn').onclick = reload;
 
 console.log('[app] started');
 boot();

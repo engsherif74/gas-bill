@@ -420,6 +420,56 @@ export async function renderHome(el){
   const elKBar = document.getElementById('kBar');
   if (elKBar) elKBar.style.width = pct + '%';
 
+  // البحث السريع
+  const qEl = document.getElementById('q');
+  if (qEl && !qEl._bound) {
+    qEl._bound = true;
+    qEl.addEventListener('input', () => {
+      const q = qEl.value.trim();
+      const qwrap = document.getElementById('qwrap');
+      const qres = document.getElementById('qres');
+      const qn = document.getElementById('qn');
+      if (q.length < 2) { if(qwrap) qwrap.classList.add('hidden'); return; }
+      if(qwrap) qwrap.classList.remove('hidden');
+      const qnz = String(q).normalize('NFKC').replace(/[\u064B-\u065F\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').trim();
+      const toks = qnz.split(' ').filter(Boolean);
+      const matches = st.S.filter(s => toks.every(t => String(s.name||'').includes(t)) && !st.paid.has(key(s)));
+      if(qn) qn.textContent = matches.length ? `${matches.length} نتيجة` : '';
+      if(qres) {
+        if(!matches.length) qres.innerHTML = '<p class="mute">لا يوجد عميل بهذا الاسم</p>';
+        else {
+          qres.innerHTML = matches.slice(0, 30).map((s, i) => {
+            const k = key(s);
+            return `<div class="apt-card" style="margin-bottom:.4rem">
+              <label class="apt-chk"></label>
+              <div class="apt-apt">${s.apt}</div>
+              <div class="apt-body">
+                <div class="apt-name">${esc(s.name || 'بدون اسم')}</div>
+                <div class="apt-meta">قطاع ${s.sector} · بلوك ${s.blk} · عمارة ${s.bld}</div>
+              </div>
+              <button class="apt-val" data-p="${k}" type="button">${money(due(s))}</button>
+              <div class="apt-menu-wrap"></div>
+            </div>`;
+          }).join('');
+          qres.querySelectorAll('[data-p]').forEach(btn => {
+            btn.onclick = async ev => {
+              ev.stopPropagation();
+              const k = btn.dataset.p, s = st.by.get(k), amt = due(s);
+              if (!amt){ toast('لا يوجد مبلغ مستحق'); return; }
+              if (!confirm(`تأكيد سداد شقة ${s.apt} — ${s.name||'بدون اسم'} بمبلغ ${money(amt)} جنيه؟`)) return;
+              await pay(st.no, [s], st.adv);
+              await put('lastPosition','last',{sector:st.sector, blk:st.blk, bld:st.bld});
+              st.sel.delete(k);
+              await refresh();
+              toast(`تم سداد شقة ${s.apt} (${money(amt)} جنيه)`);
+              renderHome(el);
+            };
+          });
+        }
+      }
+    });
+  }
+
   scrollTo(0, y);
 }
 
