@@ -1,56 +1,13 @@
 {
-  "name": "تحصيل مديونية العملاء",
-  "short_name": "التحصيل",
-  "description": "تطبيق تحصيل مديونية العملاء - قطاعات المنازل - يعمل بدون إنترنت",
-  "lang": "ar",
-  "dir": "rtl",
-  "id": "/collection-app/",
-  "start_url": "/collection-app/index.html",
-  "scope": "/collection-app/",
+  "background_color": "#1976d2",
+  "dir": "ltr",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#0d4d4d",
-  "theme_color": "#0d4d4d",
-  "categories": ["business", "finance", "productivity"],
-  "prefer_related_applications": false,
-  "icons": [
-    {
-      "src": "/collection-app/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/collection-app/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/collection-app/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/collection-app/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "تفاصيل التحصيل",
-      "short_name": "التفاصيل",
-      "url": "/collection-app/index.html#details",
-      "icons": [{"src": "/collection-app/icon-192.png", "sizes": "192x192", "type": "image/png"}]
-    },
-    {
-      "name": "حاسبة الغاز",
-      "short_name": "الحاسبة",
-      "url": "/collection-app/calculator.html",
-      "icons": [{"src": "/collection-app/icon-192.png", "sizes": "192x192", "type": "image/png"}]
-    }
-  ]
+  "name": "Gas Bill Collection",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "Gas Bill",
+  "start_url": "/",
+  "theme_color": "#ffffff",
+  "id": "/gas-bill-calculator-updated/",
+  "description": "An application to calculate and manage gas bill collection."
 }
