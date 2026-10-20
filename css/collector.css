@@ -762,3 +762,68 @@ tr:nth-child(even) td { background: color-mix(in srgb, var(--s1) 50%, transparen
     width: 100%;
   }
 }
+
+/* ===== إصلاح الأزرار البيضاء ===== */
+.btn {
+  background: #0f766e !important;
+  color: #fff !important;
+}
+.btn.ghost {
+  background: transparent !important;
+  color: #0f766e !important;
+  border: 2px solid #0f766e !important;
+}
+.btn.sm {
+  background: #0f766e !important;
+  color: #fff !important;
+}
+.btn.ok {
+  background: #0d9668 !important;
+}
+.btn.bad {
+  background: #d63a3a !important;
+}
+
+/* ===== إصلاح الكارت السفلي (رفعه فوق شريط التنقل) ===== */
+.bar {
+  position: fixed !important;
+  inset-inline: 0 !important;
+  bottom: 80px !important; /* رفعه فوق شريط التنقل */
+  background: var(--s1) !important;
+  border-top: 3px solid #0f766e !important;
+  padding: .6rem .8rem !important;
+  z-index: 20 !important;
+  box-shadow: 0 -4px 16px rgba(0,0,0,.15) !important;
+  max-width: 640px !important;
+  margin: 0 auto !important;
+}
+
+/* ===== إصلاح حاوية العمارة ===== */
+#buildingView {
+  display: block;
+  margin-bottom: 1rem;
+}
+#buildingView[hidden] {
+  display: none;
+}
+
+/* ===== إصلاح الانتقال التلقائي (ضمان بقاء لوحة المفاتيح مفتوحة) ===== */
+.num2 {
+  width: 100%;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .05em;
+  padding: .5rem .3rem;
+  min-height: 44px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  background: var(--s2);
+  color: var(--tx);
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: manipulation;
+}
+
+
