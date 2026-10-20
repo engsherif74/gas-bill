@@ -292,12 +292,13 @@ export async function renderHome(el){
   let ov = null;
   const optSec = secs.map(x => `<option ${x===st.sector?'selected':''} value="${x}">قطاع ${x}</option>`).join('');
   const optBlk = blks.map(x => `<option ${x===st.blk?'selected':''} value="${x}">بلوك ${x}</option>`).join('');
+  const optBld = Object.keys(g).sort(srt).map(x => `<option ${x===st.open?'selected':''} value="${x}">عمارة ${x}</option>`).join('');
 
   let html = `
-  <div class="pick">
-    <label class="field"><span>القطاع</span><select id="secIn" class="num2" style="width:100%;height:44px;font-weight:800;text-align:center">${optSec}</select></label>
-    <label class="field"><span>البلوك</span><select id="blkIn" class="num2" style="width:100%;height:44px;font-weight:800;text-align:center">${optBlk}</select></label>
-    <label class="field"><span>العمارة</span><input id="bldIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.open||''}" data-next=""></label>
+  <div class="pick" style="grid-template-columns:1fr 1fr 1fr">
+    <label class="field"><span>القطاع</span><select id="secIn" class="num2" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optSec}</select></label>
+    <label class="field"><span>البلوك</span><select id="blkIn" class="num2" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optBlk}</select></label>
+    <label class="field"><span>العمارة</span><input id="bldIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.open||''}" data-next="" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem;border:2px solid var(--line);border-radius:12px"></label>
   </div>
   <p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p>
   <div class="blist">`;
@@ -332,7 +333,7 @@ export async function renderHome(el){
   secIn.addEventListener('change', () => { st.sector = secIn.value; st.open = null; renderHome(el); });
   blkIn.addEventListener('change', () => { st.blk = blkIn.value; st.open = null; renderHome(el); });
   
-  // ✅ الانتقال التلقائي (مع إبقاء لوحة المفاتيح مفتوحة)
+  // الانتقال التلقائي + التمرير
   bldIn.addEventListener('input', () => {
     const v = String(bldIn.value || '').replace(/\D/g, '').slice(0, 2);
     if (bldIn.value !== v) bldIn.value = v;
@@ -342,16 +343,13 @@ export async function renderHome(el){
         st.bld = v;
         setTimeout(() => {
           renderHome(el);
-          // ✅ نقل الصفحة إلى الشقق مباشرة
-          const bv = document.getElementById('buildingView');
-          if (bv) {
-            bv.scrollIntoView({behavior:'smooth', block:'start'});
+          // التمرير إلى الشقق
+          const apts = document.querySelector('.apts');
+          if (apts) {
+            apts.scrollIntoView({behavior:'smooth', block:'start'});
           } else {
             window.scrollTo({top:0, behavior:'smooth'});
           }
-          // إعادة التركيز على حقل العمارة لإبقاء لوحة المفاتيح مفتوحة
-          const newBld = document.getElementById('bldIn');
-          if (newBld) newBld.focus();
         }, 150);
       } else {
         const inPaid = st.S.some(s => s.sector===st.sector && s.blk===st.blk && s.bld===v && st.paid.has(key(s)));
@@ -367,7 +365,11 @@ export async function renderHome(el){
       st.open = st.open === b.dataset.b ? null : b.dataset.b;
       st.bld = st.open;
       renderHome(el);
-      if (st.open) window.scrollTo({top:0, behavior:'smooth'});
+      if (st.open) {
+        const apts = document.querySelector('.apts');
+        if (apts) apts.scrollIntoView({behavior:'smooth', block:'start'});
+        else window.scrollTo({top:0, behavior:'smooth'});
+      }
     };
   });
 
@@ -385,6 +387,60 @@ export async function renderHome(el){
   if (elKPct) elKPct.textContent = pct + '%';
   const elKBar = document.getElementById('kBar');
   if (elKBar) elKBar.style.width = pct + '%';
+
+  // البحث (مُحسّن للأداء)
+  const qEl = document.getElementById('q');
+  if (qEl && !qEl._bound) {
+    qEl._bound = true;
+    let timer = null;
+    qEl.addEventListener('input', () => {
+      clearTimeout(timer);
+      const q = qEl.value.trim();
+      const qwrap = document.getElementById('qwrap');
+      const qres = document.getElementById('qres');
+      const qn = document.getElementById('qn');
+      if (q.length < 2) { qwrap.classList.add('hidden'); return; }
+      qwrap.classList.remove('hidden');
+      timer = setTimeout(() => {
+        const qnz = String(q).normalize('NFKC').replace(/[\u064B-\u065F\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').trim();
+        const toks = qnz.split(' ').filter(Boolean);
+        const matches = st.S.filter(s => toks.every(t => String(s.name||'').includes(t)) && !st.paid.has(key(s)));
+        if(qn) qn.textContent = matches.length ? `${matches.length} نتيجة` : '';
+        if(qres) {
+          if(!matches.length) qres.innerHTML = '<p class="mute">لا يوجد عميل بهذا الاسم</p>';
+          else {
+            qres.innerHTML = matches.slice(0, 30).map(s => {
+              const k = key(s);
+              return `<div class="apt-card" style="margin-bottom:.4rem" data-open="${k}">
+                <div class="apt-name">${esc(s.name || 'بدون اسم')}</div>
+                <div class="apt-meta">شقة ${s.apt} · عمارة ${s.bld} · قطاع ${s.sector}</div>
+                <div class="apt-val">${money(due(s))}</div>
+              </div>`;
+            }).join('');
+            qres.querySelectorAll('[data-open]').forEach(btn => {
+              btn.onclick = () => {
+                const k = btn.dataset.open;
+                const s = st.by.get(k);
+                if (s){
+                  st.sector = s.sector;
+                  st.blk = s.blk;
+                  st.open = s.bld;
+                  st.bld = s.bld;
+                  st.sel.clear();
+                  renderHome(el);
+                  // فتح العمارة والتمرير إلى الشقق
+                  setTimeout(() => {
+                    const apts = document.querySelector('.apts');
+                    if (apts) apts.scrollIntoView({behavior:'smooth', block:'start'});
+                  }, 100);
+                }
+              };
+            });
+          }
+        }
+      }, 300);
+    });
+  }
 
   scrollTo(0, y);
 }
