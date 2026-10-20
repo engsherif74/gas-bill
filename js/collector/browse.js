@@ -65,7 +65,6 @@ export function receipt(e){
   w.document.close();
 }
 
-/* ===== بطاقات الشقق ===== */
 function aptsView(a){
   const ch = a.filter(s => st.sel.has(key(s)));
   const ct = tot(ch);
@@ -78,13 +77,8 @@ function aptsView(a){
     const nameHtml = s.name ? esc(s.name) : '<em class="empty-name">بدون اسم</em>';
     const advHtml = b ? `<span class="apt-adv">· مقدم ${money(b)}</span>` : '';
     const partial = (s.count || 0) > 1;
-    let hiClass = '';
-    if (st.filter){
-      if (st.filter.kind === 'apt' && st.filter.matches.has('apt:' + k)) hiClass = 'hi-apt';
-      else if (st.filter.kind === 'bld' && st.filter.matches.has('bld:' + s.sector + '|' + s.blk + '|' + s.bld)) hiClass = 'hi-bld';
-    }
 
-    return `<div class="apt-card ${selected?'on':''} ${hiClass}" data-card="${k}">
+    return `<div class="apt-card ${selected?'on':''}" data-card="${k}">
       <div class="apt-top">
         <div class="apt-name" data-nm="${k}">${nameHtml}</div>
         <button class="apt-val" data-p="${k}" type="button">${money(due(s))}</button>
@@ -109,7 +103,8 @@ function aptsView(a){
     <h2 style="margin:0;font-size:1rem">عمارة ${st.bld} <span style="color:var(--br);font-weight:700">— ${money(allTot.value)} ج</span></h2>
     <label class="chk" style="display:flex;gap:.4rem;align-items:center;font-weight:700"><input type="checkbox" id="all" ${ch.length===a.length&&a.length?'checked':''}> تحديد الكل</label>
   </div>
-  <div class="apt-list">${cards}</div>`;
+  <div class="apt-list">${cards}</div>
+  ${bar({ch, ct, allTot})}`;
   return {html, ch, ct, allTot};
 }
 
@@ -117,7 +112,7 @@ const bar = v => {
   const cnt = v.ch.length;
   const inv = v.ch.reduce((t,s) => t + (s.count||0), 0);
   const has = cnt > 0;
-  return `<div class="bar">
+  return `<div class="bar-inline">
     <div class="bar-grid">
       <div><small>إجمالي العمارة</small><b>${money(v.allTot.value)}</b></div>
       <div class="sel"><small>المحدد (${cnt} شقة · ${inv} فاتورة)</small><b>${has ? money(v.ct.value) : '—'}</b></div>
@@ -270,29 +265,7 @@ function bind(el, a, v, again){
   };
 }
 
-/* ===== دالة مساعدة للتمرير إلى أعلى الصفحة ===== */
-function scrollToTop(){
-  window.scrollTo({top: 0, behavior: 'smooth'});
-  const bv = document.getElementById('buildingView');
-  if (bv) bv.scrollIntoView({behavior: 'smooth', block: 'start'});
-}
-
-/* ===== عرض العمارة في #buildingView (أعلى الصفحة) ===== */
-function renderBuildingInView(a){
-  const bv = document.getElementById('buildingView');
-  if (!bv) return;
-  const v = aptsView(a);
-  bv.innerHTML = `<div class="card">${v.html}</div>`;
-  bv.hidden = false;
-  bind(bv, a, v, () => {
-    // إعادة رسم العمارة بعد السداد أو التحديث
-    const a2 = work().filter(s => s.sector===st.sector && s.blk===st.blk && s.bld===st.bld).sort((p,q) => srt(p.apt, q.apt));
-    renderBuildingInView(a2);
-  });
-  scrollToTop();
-}
-
-/* ===== البحث في الصفحة الرئيسية (بدون إعادة رسم) ===== */
+/* ===== البحث المباشر (بدون renderHome) ===== */
 function initSearch(){
   const qEl = document.getElementById('q');
   if (!qEl || qEl._bound) return;
@@ -318,7 +291,7 @@ function initSearch(){
             const k = key(s);
             return `<div class="apt-card" style="margin-bottom:.4rem" data-open="${k}">
               <div class="apt-name">${esc(s.name || 'بدون اسم')}</div>
-              <div class="apt-meta">شقة ${s.apt} · عمارة ${s.bld} · قطاع ${s.sector}</div>
+              <div class="apt-meta">شقة ${s.apt} · عمارة ${s.bld} · قطاع ${s.sector} · بلوك ${s.blk}</div>
               <div class="apt-val">${money(due(s))}</div>
             </div>`;
           }).join('');
@@ -335,13 +308,12 @@ function initSearch(){
                 qwrap.classList.add('hidden');
                 qEl.value = '';
                 renderHome(document.getElementById('view'));
-                setTimeout(scrollToTop, 100);
               }
             };
           });
         }
       }
-    }, 200);
+    }, 300);
   });
 }
 
@@ -382,17 +354,10 @@ export async function renderHome(el){
       </div>
     </div>
   </div>
-  <div class="pick" style="grid-template-columns:1fr 1fr">
+  <div class="pick" style="grid-template-columns:1fr 1fr 1fr">
     <label class="field"><span>القطاع</span><select id="secIn" class="num2" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optSec}</select></label>
     <label class="field"><span>البلوك</span><select id="blkIn" class="num2" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optBlk}</select></label>
-  </div>
-  <div class="pick" style="grid-template-columns:1fr;margin-top:-.3rem">
-    <label class="field"><span>العمارة (اختر أو اكتب)</span>
-      <div style="display:flex;gap:.4rem;align-items:center">
-        <select id="bldSel" class="num2" style="flex:1;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optBld}</select>
-        <input id="bldIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.open||''}" placeholder="أو اكتب" style="width:80px;height:48px;font-weight:800;text-align:center;font-size:1.1rem;border:2px solid var(--line);border-radius:12px">
-      </div>
-    </label>
+    <label class="field"><span>العمارة</span><select id="bldIn" class="num2" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optBld}</select></label>
   </div>
   <p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p>
   <div class="blist">`;
@@ -402,23 +367,27 @@ export async function renderHome(el){
     const o = st.open === b;
     const cells = `<b>عمارة ${b}</b><span>${x.n} شقة</span><span>${x.count} فاتورة</span><strong>${money(x.value)}</strong>`;
     html += `<div class="brow prow ${o?'open':''}" data-b="${b}" role="button" tabindex="0">${cells}</div>`;
+    if (o){
+      st.bld = b;
+      const aa = g[b].sort((p,q) => srt(p.apt, q.apt));
+      const vv = aptsView(aa);
+      html += `<div class="card apts">${vv.html}</div>`;
+    }
   });
   el.innerHTML = html + '</div>';
 
   const secIn = el.querySelector('#secIn');
   const blkIn = el.querySelector('#blkIn');
-  const bldSel = el.querySelector('#bldSel');
   const bldIn = el.querySelector('#bldIn');
 
-  secIn.addEventListener('change', () => { st.sector = secIn.value; st.open = null; renderHome(el); });
+  secIn.addEventListener('change', () => { st.sector = secIn.value; st.blk = ''; st.open = null; renderHome(el); });
   blkIn.addEventListener('change', () => { st.blk = blkIn.value; st.open = null; renderHome(el); });
   
   const openBld = (v) => {
     if (g[v]){
       st.open = v;
       st.bld = v;
-      const a = g[v].sort((p,q) => srt(p.apt, q.apt));
-      renderBuildingInView(a);
+      renderHome(el);
     } else {
       const inPaid = st.S.some(s => s.sector===st.sector && s.blk===st.blk && s.bld===v && st.paid.has(key(s)));
       if (inPaid) toast('العمارة مسددة بالكامل');
@@ -426,15 +395,9 @@ export async function renderHome(el){
     }
   };
 
-  bldSel.addEventListener('change', () => {
-    const v = bldSel.value;
-    if (v) { bldIn.value = v; openBld(v); }
-  });
-  
-  bldIn.addEventListener('input', () => {
-    const v = String(bldIn.value || '').replace(/\D/g, '').slice(0, 2);
-    if (bldIn.value !== v) bldIn.value = v;
-    if (v.length === 2) openBld(v);
+  bldIn.addEventListener('change', () => {
+    const v = bldIn.value;
+    if (v) openBld(v);
   });
 
   el.querySelectorAll('[data-b]').forEach(b => {
@@ -443,14 +406,18 @@ export async function renderHome(el){
       const v = b.dataset.b;
       if (st.open === v) {
         st.open = null; st.bld = null;
-        const bv = document.getElementById('buildingView');
-        if (bv) { bv.hidden = true; bv.innerHTML = ''; }
         renderHome(el);
       } else {
         openBld(v);
       }
     };
   });
+
+  if (st.open && g[st.open]) {
+    const aa = g[st.open].sort((p,q) => srt(p.apt, q.apt));
+    const vv = aptsView(aa);
+    bind(el, aa, vv, () => renderHome(el));
+  }
 
   // KPIs
   const totalDebt = st.S.reduce((sum, s) => sum + (s.value || 0), 0);
@@ -466,12 +433,6 @@ export async function renderHome(el){
   if (elKBar) elKBar.style.width = pct + '%';
 
   initSearch();
-
-  // افتح العمارة الأخيرة تلقائياً عند التحميل الأول
-  if (st.open && g[st.open]){
-    const a = g[st.open].sort((p,q) => srt(p.apt, q.apt));
-    renderBuildingInView(a);
-  }
 }
 
 export function renderBuilding(el){
@@ -479,7 +440,7 @@ export function renderBuilding(el){
   const a = work().filter(s => s.sector===st.sector && s.blk===st.blk && s.bld===st.bld).sort((p,q) => srt(p.apt, q.apt));
   if (!a.length) return history.back();
   const v = aptsView(a);
-  el.innerHTML = `<div class="card">${v.html}</div>${bar(v)}`;
+  el.innerHTML = `<div class="card">${v.html}</div>`;
   bind(el, a, v, () => renderBuilding(el));
 }
 
