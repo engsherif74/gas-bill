@@ -132,103 +132,313 @@ main {
 .brow.hi { background: color-mix(in srgb, var(--ac) 16%, var(--s1)); border-inline-start-color: var(--ac); }
 .brow.hi strong { color: var(--ac); }
 
-/* ===== بطاقات الشقق ===== */
-.apt-list { display: grid; gap: .4rem; }
+/* ===== بطاقات الشقق (التصميم الجديد) ===== */
+.apt-list { display: grid; gap: .5rem; }
 .apt-card {
-  display: grid;
-  grid-template-columns: 22px 32px 1fr auto 28px;
-  gap: .35rem; align-items: center;
-  background: var(--s1); border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  background: var(--s1);
+  border: 1px solid var(--line);
   border-inline-start: 4px solid var(--br);
-  border-radius: 12px; padding: .45rem .55rem;
-  min-height: 56px; font-variant-numeric: tabular-nums;
-  transition: background .2s, transform .12s;
+  border-radius: 12px;
+  padding: .5rem .7rem;
+  font-variant-numeric: tabular-nums;
+  transition: background .2s;
 }
-.apt-card:active { transform: scale(.99); }
-.apt-card.on { background: color-mix(in srgb, var(--br) 14%, var(--s1)); border-inline-start-color: var(--br); }
+.apt-card.on { background: color-mix(in srgb, var(--br) 14%, var(--s1)); }
 .apt-card.hi-apt { background: color-mix(in srgb, #0ea5e9 18%, var(--s1)); border-inline-start-color: #0ea5e9; }
 .apt-card.hi-bld { background: color-mix(in srgb, #d946a8 18%, var(--s1)); border-inline-start-color: #d946a8; }
 .apt-card.pulse { animation: pulse 1s ease-in-out 2; }
 @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 var(--br); } 50% { box-shadow: 0 0 0 8px transparent; } }
-.apt-chk { display: flex; justify-content: center; }
-.apt-chk input { width: 18px; height: 18px; }
-.apt-apt {
-  background: var(--br); color: #fff; font-weight: 800;
-  border-radius: 8px; text-align: center; padding: .25rem 0; font-size: .85rem;
+
+/* الصف العلوي: checkbox + الاسم + رقم الشقة */
+.apt-top {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
 }
-.apt-body { min-width: 0; }
-.apt-name { font-weight: 800; font-size: .95rem; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; user-select: none; }
-.apt-name .empty-name { color: var(--mu); font-style: italic; font-weight: 500; }
-.apt-meta { color: var(--mu); font-size: .78rem; margin-top: .05rem; }
-.apt-adv { color: var(--ac); font-weight: 700; margin-inline-start: .3rem; }
+.apt-chk {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+.apt-chk input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--br);
+  cursor: pointer;
+}
+.apt-name {
+  flex: 1;
+  font-weight: 800;
+  font-size: .98rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+}
+.apt-name .empty-name {
+  color: var(--mu);
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* الصف السفلي: عدد الفواتير + القيمة + ⋮ */
+.apt-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .4rem;
+  padding-inline-start: .2rem;
+}
+.apt-meta {
+  color: var(--mu);
+  font-size: .78rem;
+}
+.apt-adv {
+  color: var(--ac);
+  font-weight: 700;
+  margin-inline-start: .3rem;
+}
 .apt-val {
-  background: color-mix(in srgb, var(--ac) 12%, var(--s1));
-  border: 1.5px solid var(--ac); color: var(--ac);
-  border-radius: 8px; font: inherit; font-weight: 800; cursor: pointer;
-  min-height: 36px; min-width: 64px; padding: .25rem .5rem;
-  text-align: center; font-size: .9rem; font-variant-numeric: tabular-nums;
-  transition: background .2s, transform .12s;
+  background: var(--ac);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: .25rem .6rem;
+  font: inherit;
+  font-weight: 800;
+  font-size: .88rem;
+  cursor: pointer;
+  min-height: 32px;
+  min-width: 60px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  transition: transform .12s, background .2s;
 }
-.apt-val:hover { background: color-mix(in srgb, var(--ac) 20%, var(--s1)); }
+.apt-val:hover { background: color-mix(in srgb, var(--ac) 85%, #000); }
 .apt-val:active { transform: scale(.95); }
+
+/* القائمة المنسدلة ⋮ */
 .apt-menu-wrap { position: relative; }
-.apt-dots { background: none; border: 0; font-size: 1.1rem; cursor: pointer; padding: .1rem .25rem; color: var(--mu); border-radius: 8px; min-height: 30px; }
+.apt-dots {
+  background: none;
+  border: 0;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: .1rem .3rem;
+  color: var(--mu);
+  border-radius: 8px;
+  min-height: 30px;
+}
 .apt-dots:hover { background: var(--s2); }
 .apt-pop {
-  position: absolute; inset-inline-end: 0; top: 30px;
-  background: var(--s1); border: 1px solid var(--line);
-  border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.15);
-  z-index: 10; display: grid; min-width: 150px; padding: .25rem;
+  position: absolute;
+  inset-inline-end: 0;
+  top: 30px;
+  background: var(--s1);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  z-index: 10;
+  display: grid;
+  min-width: 150px;
+  padding: .25rem;
 }
 .apt-pop[hidden] { display: none; }
-.apt-pop button { background: none; border: 0; text-align: right; padding: .55rem .7rem; font: inherit; font-size: .92rem; color: var(--tx); border-radius: 8px; cursor: pointer; min-height: 40px; }
-.apt-pop button:hover { background: var(--s2); }
-.apt-pop-info { padding: .45rem .7rem; font-size: .78rem; color: var(--mu); border-bottom: 1px solid var(--line); }
-
-/* ===== الكارت السفلي ===== */
-.bar {
-  position: fixed; inset-inline: 0; bottom: 62px;
-  background: var(--s1); border-top: 3px solid var(--br);
-  padding: .6rem .8rem; z-index: 20;
-  box-shadow: 0 -4px 16px rgba(0,0,0,.08);
-  max-width: 640px; margin: 0 auto;
+.apt-pop button {
+  background: none;
+  border: 0;
+  text-align: right;
+  padding: .55rem .7rem;
+  font: inherit;
+  font-size: .92rem;
+  color: var(--tx);
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 40px;
 }
-.bar-row { display: flex; justify-content: space-between; align-items: center; gap: .6rem; }
-.bar-row span { font-size: .95rem; color: var(--tx); }
-.bar-row span b { color: var(--br); font-weight: 800; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.apt-pop button:hover { background: var(--s2); }
+.apt-pop-info {
+  padding: .45rem .7rem;
+  font-size: .78rem;
+  color: var(--mu);
+  border-bottom: 1px solid var(--line);
+}
+
+/* ===== الكارت السفلي (السداد الجماعي) ===== */
+.bar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 62px;
+  background: var(--s1);
+  border-top: 3px solid var(--br);
+  padding: .6rem .8rem;
+  z-index: 20;
+  box-shadow: 0 -4px 16px rgba(0,0,0,.08);
+  max-width: 640px;
+  margin: 0 auto;
+}
+.bar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .6rem;
+}
+.bar-row span {
+  font-size: .95rem;
+  color: var(--tx);
+}
+.bar-row span b {
+  color: var(--br);
+  font-weight: 800;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
 .bar-row .mute { color: var(--mu); }
-.bar-row .btn { min-width: 130px; background: var(--ok); font-size: .95rem; }
+.bar-row .btn {
+  min-width: 130px;
+  background: var(--ok);
+  font-size: .95rem;
+}
 .bar-row .btn:disabled { background: var(--mu); }
 
 /* ===== صفحة ما تم تحصيله ===== */
 .ledger-list { display: grid; gap: .4rem; }
-.led-row { background: var(--s1); border: 1px solid var(--line); border-inline-start: 4px solid #0ea5e9; border-radius: 12px; padding: .55rem .65rem; box-shadow: var(--sh); }
-.led-main { display: grid; grid-template-columns: 36px 1fr auto auto; gap: .5rem; align-items: center; }
-.led-apt { background: #0ea5e9; color: #fff; font-weight: 800; border-radius: 8px; text-align: center; padding: .25rem 0; font-size: .88rem; }
+.led-row {
+  background: var(--s1);
+  border: 1px solid var(--line);
+  border-inline-start: 4px solid #0ea5e9;
+  border-radius: 12px;
+  padding: .55rem .65rem;
+  box-shadow: var(--sh);
+}
+.led-main {
+  display: grid;
+  grid-template-columns: 36px 1fr auto auto;
+  gap: .5rem;
+  align-items: center;
+}
+.led-apt {
+  background: #0ea5e9;
+  color: #fff;
+  font-weight: 800;
+  border-radius: 8px;
+  text-align: center;
+  padding: .25rem 0;
+  font-size: .88rem;
+}
 .led-info { min-width: 0; }
-.led-name { font-weight: 700; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.led-meta { color: var(--mu); font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.led-name {
+  font-weight: 700;
+  font-size: .95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.led-meta {
+  color: var(--mu);
+  font-size: .78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .led-right { display: flex; align-items: center; gap: .35rem; }
 .led-tags { display: flex; gap: .2rem; flex-wrap: wrap; justify-content: flex-end; }
-.led-amount { font-weight: 800; color: #0ea5e9; font-variant-numeric: tabular-nums; font-size: 1rem; }
+.led-amount {
+  font-weight: 800;
+  color: #0ea5e9;
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+}
 .led-menu-wrap { position: relative; }
-.menu-dots { background: none; border: 0; font-size: 1.1rem; cursor: pointer; padding: .1rem .3rem; color: var(--mu); border-radius: 8px; min-height: 30px; }
+.menu-dots {
+  background: none;
+  border: 0;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: .1rem .3rem;
+  color: var(--mu);
+  border-radius: 8px;
+  min-height: 30px;
+}
 .menu-dots:hover { background: var(--s2); }
-.menu-pop { position: absolute; inset-inline-end: 0; top: 30px; background: var(--s1); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.15); z-index: 10; display: grid; min-width: 160px; padding: .25rem; }
+.menu-pop {
+  position: absolute;
+  inset-inline-end: 0;
+  top: 30px;
+  background: var(--s1);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  z-index: 10;
+  display: grid;
+  min-width: 160px;
+  padding: .25rem;
+}
 .menu-pop[hidden] { display: none; }
-.menu-pop button { background: none; border: 0; text-align: right; padding: .55rem .7rem; font: inherit; font-size: .92rem; color: var(--tx); border-radius: 8px; cursor: pointer; min-height: 40px; }
+.menu-pop button {
+  background: none;
+  border: 0;
+  text-align: right;
+  padding: .55rem .7rem;
+  font: inherit;
+  font-size: .92rem;
+  color: var(--tx);
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 40px;
+}
 .menu-pop button:hover { background: var(--s2); }
 .menu-pop button[disabled] { color: var(--mu); cursor: not-allowed; opacity: .5; }
 
 /* ===== النوافذ ===== */
-dialog { border: 0; border-radius: var(--r); padding: 1.2rem; max-width: 90vw; background: var(--s1); color: var(--tx); display: grid; gap: .6rem; box-shadow: 0 10px 28px rgba(0,0,0,.2); }
+dialog {
+  border: 0;
+  border-radius: var(--r);
+  padding: 1.2rem;
+  max-width: 90vw;
+  background: var(--s1);
+  color: var(--tx);
+  display: grid;
+  gap: .6rem;
+  box-shadow: 0 10px 28px rgba(0,0,0,.2);
+}
 dialog::backdrop { background: rgba(0,0,0,.5); backdrop-filter: blur(2px); }
-dialog.viewer { width: 96vw; height: 90vh; grid-template-rows: 1fr auto; }
-dialog.viewer iframe { width: 100%; height: 100%; border: 0; background: #fff; border-radius: 12px; }
+dialog.viewer {
+  width: 96vw;
+  height: 90vh;
+  grid-template-rows: 1fr auto;
+}
+dialog.viewer iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+  border-radius: 12px;
+}
 .partial-dialog { max-width: 420px; }
 .partial-dialog h3 { font-size: 1.05rem; margin-bottom: .4rem; }
 .partial-options { display: grid; gap: .4rem; margin: .6rem 0; }
-.partial-opt { background: var(--s2); border: 2px solid var(--line); border-radius: 12px; padding: .6rem .75rem; font: inherit; font-weight: 700; text-align: right; cursor: pointer; min-height: 46px; display: flex; justify-content: space-between; align-items: center; transition: border-color .2s, background .2s; }
+.partial-opt {
+  background: var(--s2);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: .6rem .75rem;
+  font: inherit;
+  font-weight: 700;
+  text-align: right;
+  cursor: pointer;
+  min-height: 46px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: border-color .2s, background .2s;
+}
 .partial-opt small { color: var(--mu); font-weight: 400; font-size: .78rem; }
 .partial-opt.selected { border-color: var(--br); background: var(--soft); }
 
