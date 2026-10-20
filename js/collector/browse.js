@@ -13,7 +13,7 @@ export const st = {
   S: [], by: new Map(), paid: new Set(), adv: new Map(), sel: new Set(),
   sector: '', blk: '', bld: null, apt: null, open: null,
   pager: true, all: false, cycle: '', who: '', no: '0',
-  filter: null, filterSel: new Set()
+  filter: null, filterSel: new Set(), showCheckboxes: false
 };
 
 const srt = (a,b) => Number(a)-Number(b);
@@ -65,11 +65,13 @@ export function receipt(e){
   w.document.close();
 }
 
-/* ===== تصميم بطاقة الشقة الجديد ===== */
+/* ===== تصميم بطاقة الشقة (مع checkbox يظهر عند التحديد فقط) ===== */
 function aptsView(a){
   const ch = a.filter(s => st.sel.has(key(s)));
   const ct = tot(ch);
   const allTot = tot(a);
+  const showCB = st.showCheckboxes; // متغير التحكم في ظهور الـ checkbox
+
   const cards = a.map(s => {
     const k = key(s);
     const b = st.adv.get(k) || 0;
@@ -82,16 +84,21 @@ function aptsView(a){
       if (st.filter.kind === 'apt' && st.filter.matches.has('apt:' + k)) hiClass = 'hi-apt';
       else if (st.filter.kind === 'bld' && st.filter.matches.has('bld:' + s.sector + '|' + s.blk + '|' + s.bld)) hiClass = 'hi-bld';
     }
+
+    // زر القيمة (يظهر كـ قيمة فقط، مع خلفية بيضاء)
+    const valBtn = `<button class="apt-val" data-p="${k}" type="button">${money(due(s))}</button>`;
+
+    // checkbox يظهر فقط إذا كان showCB مفعلاً
+    const cbHtml = showCB ? `<label class="apt-chk"><input type="checkbox" data-k="${k}" ${selected?'checked':''}></label>` : '';
+
     return `<div class="apt-card ${selected?'on':''} ${hiClass}" data-card="${k}">
-      <label class="apt-chk" style="cursor:pointer">
-        <input type="checkbox" data-k="${k}" ${selected?'checked':''}>
-      </label>
-      <div class="apt-apt" style="cursor:pointer">${s.apt}</div>
+      ${cbHtml}
+      <div class="apt-apt">${s.apt}</div>
       <div class="apt-body">
         <div class="apt-name" data-nm="${k}">${nameHtml}</div>
         <div class="apt-meta">${s.count} فاتورة${advHtml}</div>
       </div>
-      <button class="apt-val" data-p="${k}" type="button">${money(due(s))}</button>
+      ${valBtn}
       <div class="apt-menu-wrap">
         <button class="apt-dots" data-m="${k}" type="button" aria-label="خيارات">⋮</button>
         <div class="apt-pop" data-pop="${k}" hidden>
@@ -103,10 +110,16 @@ function aptsView(a){
       </div>
     </div>`;
   }).join('');
+
+  // زر تحديد الكل (يظهر فقط إذا كان showCB مفعلاً)
+  const allCB = showCB ? `<label class="chk" style="display:flex;gap:.4rem;align-items:center;font-weight:700"><input type="checkbox" id="all" ${ch.length===a.length&&a.length?'checked':''}> تحديد الكل</label>` : '';
+  const toggleCB = `<button class="lnk" id="toggleCb" type="button" style="font-size:.85rem">${showCB ? 'إخفاء التحديد' : 'تحديد الشقق'}</button>`;
+
   const html = `<div class="bh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
     <h2 style="margin:0;font-size:1rem">عمارة ${st.bld} <span style="color:var(--br);font-weight:700">— ${money(allTot.value)} ج</span></h2>
-    <label class="chk" style="display:flex;gap:.4rem;align-items:center;font-weight:700"><input type="checkbox" id="all" ${ch.length===a.length&&a.length?'checked':''}> تحديد الكل</label>
+    ${toggleCB}
   </div>
+  ${allCB ? `<div style="margin-bottom:.4rem">${allCB}</div>` : ''}
   <div class="apt-list">${cards}</div>`;
   return {html, ch, ct, allTot};
 }
@@ -186,26 +199,27 @@ function partialDialog(s){
   });
 }
 
-/* تعديل ربط الأحداث ليشمل الضغط على الشقة والـ checkbox معاً */
 function bind(el, a, v, again){
-  // الضغط على checkbox أو رقم الشقة لتحديد الشقة
-  el.querySelectorAll('.apt-chk, .apt-apt').forEach(c => {
-    c.onclick = (ev) => {
-      ev.stopPropagation();
-      const card = c.closest('.apt-card');
-      const k = card.dataset.card;
-      const cb = card.querySelector('input[type=checkbox]');
-      cb.checked = !cb.checked;
-      if (cb.checked) st.sel.add(k); else st.sel.delete(k);
-      again();
-    };
+  // toggle checkboxes
+  const toggleCb = el.querySelector('#toggleCb');
+  if (toggleCb) toggleCb.onclick = () => {
+    st.showCheckboxes = !st.showCheckboxes;
+    again();
+  };
+
+  // checkbox
+  el.querySelectorAll('[data-k]').forEach(c => {
+    c.onchange = () => { c.checked ? st.sel.add(c.dataset.k) : st.sel.delete(c.dataset.k); again(); };
   });
 
+  // تحديد الكل
   const allCb = el.querySelector('#all');
   if (allCb) allCb.onchange = e => {
     a.forEach(s => e.target.checked ? st.sel.add(key(s)) : st.sel.delete(key(s)));
     again();
   };
+
+  // الضغط على الاسم
   el.querySelectorAll('[data-nm]').forEach(nm => {
     nm.onclick = ev => {
       ev.stopPropagation();
@@ -214,6 +228,8 @@ function bind(el, a, v, again){
       again();
     };
   });
+
+  // menu
   el.querySelectorAll('[data-m]').forEach(btn => {
     btn.onclick = ev => {
       ev.stopPropagation();
@@ -224,6 +240,7 @@ function bind(el, a, v, again){
   });
   document.addEventListener('click', () => { el.querySelectorAll('[data-pop]').forEach(p => p.hidden = true); });
 
+  // actions
   el.querySelectorAll('[data-act]').forEach(b => {
     b.onclick = async ev => {
       ev.stopPropagation();
@@ -259,6 +276,7 @@ function bind(el, a, v, again){
     };
   });
 
+  // السداد الفردي
   el.querySelectorAll('[data-p]').forEach(btn => {
     btn.onclick = async ev => {
       ev.stopPropagation();
@@ -274,6 +292,7 @@ function bind(el, a, v, again){
     };
   });
 
+  // السداد الجماعي
   const p = el.querySelector('#pay');
   if (p) p.onclick = async () => {
     if (!v.ch.length) return;
@@ -309,7 +328,11 @@ export async function renderHome(el){
   const t = tot(rows);
 
   let ov = null;
+  // البحث أعلى المربعات
   let html = `
+  <div class="search-box">
+    <label class="search"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg><input id="q" type="search" placeholder="ابحث باسم العميل..."></label>
+  </div>
   <div class="pick">
     <label class="field"><span>القطاع</span><input id="secIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.sector||''}" data-next="blkIn"></label>
     <label class="field"><span>البلوك</span><input id="blkIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.blk||''}" data-next="bldIn"></label>
@@ -421,7 +444,7 @@ export async function renderHome(el){
 
   if (ov) bind(el, ov.a, ov.v, () => renderHome(el));
 
-  // تحديث KPIs
+  // KPIs
   const totalDebt = st.S.reduce((sum, s) => sum + (s.value || 0), 0);
   const paidToday = st.S.reduce((sum, s) => sum + (st.paid.has(key(s)) ? (s.value || 0) : 0), 0);
   const pct = totalDebt ? Math.round(100 * paidToday / totalDebt) : 0;
@@ -440,11 +463,24 @@ export async function renderHome(el){
     qEl._bound = true;
     qEl.addEventListener('input', () => {
       const q = qEl.value.trim();
-      const qwrap = document.getElementById('qwrap');
-      const qres = document.getElementById('qres');
-      const qn = document.getElementById('qn');
-      if (q.length < 2) { if(qwrap) qwrap.classList.add('hidden'); return; }
-      if(qwrap) qwrap.classList.remove('hidden');
+      let qwrap = document.getElementById('qwrap');
+      let qres = document.getElementById('qres');
+      let qn = document.getElementById('qn');
+      
+      if (!qwrap) {
+        // إنشاء عنصر البحث إذا لم يكن موجوداً
+        const div = document.createElement('div');
+        div.id = 'qwrap';
+        div.className = 'wrap hidden';
+        div.innerHTML = `<div class="card"><div class="h2" style="display:flex;justify-content:space-between;margin-bottom:.6rem"><span>نتائج البحث</span><span class="mute" id="qn"></span></div><div class="list" id="qres" style="margin-top:0"></div></div>`;
+        el.querySelector('.search-box').appendChild(div);
+        qwrap = document.getElementById('qwrap');
+        qres = document.getElementById('qres');
+        qn = document.getElementById('qn');
+      }
+      
+      if (q.length < 2) { qwrap.classList.add('hidden'); return; }
+      qwrap.classList.remove('hidden');
       const qnz = String(q).normalize('NFKC').replace(/[\u064B-\u065F\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').trim();
       const toks = qnz.split(' ').filter(Boolean);
       const matches = st.S.filter(s => toks.every(t => String(s.name||'').includes(t)) && !st.paid.has(key(s)));
