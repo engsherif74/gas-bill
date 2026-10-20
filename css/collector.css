@@ -826,4 +826,73 @@ tr:nth-child(even) td { background: color-mix(in srgb, var(--s1) 50%, transparen
   touch-action: manipulation;
 }
 
+/* ===== إصلاح الأزرار ===== */
+.btn {
+  background: #0f766e !important;
+  color: #fff !important;
+}
+.btn.ghost {
+  background: transparent !important;
+  color: #0f766e !important;
+  border: 2px solid #0f766e !important;
+}
+.btn.sm {
+  background: #0f766e !important;
+  color: #fff !important;
+}
 
+/* ===== إصلاح الكارت السفلي (رفعه فوق شريط التنقل) ===== */
+.bar {
+  position: fixed !important;
+  inset-inline: 0 !important;
+  bottom: 85px !important;
+  background: var(--s1) !important;
+  border-top: 3px solid #0f766e !important;
+  padding: .6rem .8rem !important;
+  z-index: 20 !important;
+  box-shadow: 0 -4px 16px rgba(0,0,0,.15) !important;
+  max-width: 640px !important;
+  margin: 0 auto !important;
+}
+.bar-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: .4rem;
+  align-items: center;
+}
+.bar-grid > div {
+  display: grid;
+  min-width: 0;
+}
+.bar-grid small {
+  color: var(--mu);
+  font-size: .65rem;
+  font-weight: 600;
+}
+.bar-grid b {
+  font-size: .9rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--tx);
+}
+.bar-grid .sel b { color: var(--br); }
+.bar-grid .rem b { color: var(--ac); }
+.bar-grid .btn {
+  grid-row: 1 / 3;
+  grid-column: 4;
+  min-width: 100px;
+  padding: .5rem .7rem;
+  font-size: .9rem;
+  background: #0d9668 !important;
+  min-height: 44px;
+}
+.bar-grid .btn:disabled {
+  background: var(--mu) !important;
+}
+
+/* ===== إصلاح المربعات للموبايل ===== */
+.num2 {
+  width: 100%;
+  text-align: center;
+  font-size: 1.1rem;
+ 
