@@ -56,6 +56,7 @@
 </main>
 
 <main id="app" hidden>
+  <section id="buildingView" hidden></section>
   <section id="view"></section>
 </main>
 
@@ -82,7 +83,7 @@
   var tabsEl = document.getElementById('tabs');
   var footerEl = document.getElementById('footer');
 
-  function showDiag(msg){
+  function showDiag(msg) {
     document.getElementById('who').textContent = 'تعذر التحميل';
     lockedEl.removeAttribute('data-show');
     appEl.hidden = true;
@@ -92,37 +93,37 @@
     diagText.textContent = String(msg);
   }
 
-  window.addEventListener('error', function(e){
-    showDiag('JS error: ' + e.message + '\n' + (e.filename||'') + ':' + (e.lineno||''));
+  window.addEventListener('error', function(e) {
+    showDiag('JS error: ' + e.message + '\n' + (e.filename || '') + ':' + (e.lineno || ''));
   });
-  window.addEventListener('unhandledrejection', function(e){
+  window.addEventListener('unhandledrejection', function(e) {
     showDiag('Promise: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
   });
 
-  setTimeout(function(){
+  setTimeout(function() {
     if (!appEl.hidden) return;
     if (lockedEl.getAttribute('data-show') === '1') return;
     if (diagEl.getAttribute('data-show') === '1') return;
     showDiag('لم يبدأ التطبيق بعد 5 ثوانٍ.\nتأكد من رفع js/collector/app.js وأن الإنترنت يعمل.\nافتح F12 > Console لمعرفة الخطأ.');
   }, 5000);
 
-  document.getElementById('retry').onclick = function(){ location.reload(); };
-  document.getElementById('hardReset').onclick = function(){
+  document.getElementById('retry').onclick = function() { location.reload(); };
+  document.getElementById('hardReset').onclick = function() {
     if (!confirm('سيُمسح كل شيء (بيانات الدخول، الملفات، التحصيلات). هل أنت متأكد؟')) return;
-    (async function(){
-      try{
+    (async function() {
+      try {
         var dbs = await indexedDB.databases();
-        for (var i=0;i<dbs.length;i++){ if (dbs[i].name) indexedDB.deleteDatabase(dbs[i].name); }
-      }catch(e){}
-      try{ localStorage.clear(); }catch(e){}
-      try{
+        for (var i = 0; i < dbs.length; i++) { if (dbs[i].name) indexedDB.deleteDatabase(dbs[i].name); }
+      } catch(e) {}
+      try { localStorage.clear(); } catch(e) {}
+      try {
         var ks = await caches.keys();
-        await Promise.all(ks.map(function(k){ return caches.delete(k); }));
-      }catch(e){}
-      try{
+        await Promise.all(ks.map(function(k) { return caches.delete(k); }));
+      } catch(e) {}
+      try {
         var rs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(rs.map(function(r){ return r.unregister(); }));
-      }catch(e){}
+        await Promise.all(rs.map(function(r) { return r.unregister(); }));
+      } catch(e) {}
       location.reload();
     })();
   };
@@ -130,7 +131,7 @@
   var s = document.createElement('script');
   s.type = 'module';
   s.src = 'js/collector/app.js';
-  s.onerror = function(){ showDiag('فشل تحميل js/collector/app.js\nتأكد أن الملف موجود في المستودع.'); };
+  s.onerror = function() { showDiag('فشل تحميل js/collector/app.js\nتأكد أن الملف موجود في المستودع.'); };
   document.body.appendChild(s);
 })();
 </script>

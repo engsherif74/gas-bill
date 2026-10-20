@@ -3,40 +3,86 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0c2233">
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
 <title>تسجيل الدخول · محصّل الغاز</title>
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/collector.css">
 <style>
-  body{display:grid;place-items:center;min-height:100vh;padding:1rem}
-  .login-card{max-width:420px;width:100%}
-  .login-card h1{text-align:center;font-size:1.4rem;margin-bottom:.3rem}
-  .login-card .sub{text-align:center;color:var(--mute);margin-bottom:1.2rem}
-  .login-card .logo{display:block;margin:0 auto 1rem;width:64px;height:64px}
+  body {
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    padding: 1rem;
+    background: var(--bg);
+  }
+  .login-card {
+    max-width: 420px;
+    width: 100%;
+  }
+  .login-card h1 {
+    text-align: center;
+    font-size: 1.4rem;
+    margin-bottom: .3rem;
+    color: var(--tx);
+  }
+  .login-card .sub {
+    text-align: center;
+    color: var(--mu);
+    margin-bottom: 1.2rem;
+  }
+  .login-card .logo {
+    display: block;
+    margin: 0 auto 1rem;
+    width: 64px;
+    height: 64px;
+  }
+  .login-btn {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.1rem;
+    font-weight: 800;
+    background: var(--br);
+    color: #fff;
+    border: 0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .login-btn:hover { background: var(--br2); }
+  .login-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .msg-error { color: var(--bad); font-weight: 700; text-align: center; margin-top: .8rem; }
+  .msg-warn { color: var(--ac); font-weight: 700; text-align: center; margin-top: .8rem; }
 </style>
 </head>
 <body>
+
 <main class="login-card">
   <section class="card">
-    <svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 3c3 9 14 13 14 26a14 14 0 0 1-28 0c0-6 3-9 6-12 0 5 3 7 5 7-2-8 0-15 3-21z" fill="#f2a516"/><path d="M24 24c2 4 7 6 7 12a7 7 0 0 1-14 0c0-4 4-6 7-12z" fill="#0a6fb0"/></svg>
+    <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M24 3c3 9 14 13 14 26a14 14 0 0 1-28 0c0-6 3-9 6-12 0 5 3 7 5 7-2-8 0-15 3-21z" fill="#f2a516"/>
+      <path d="M24 24c2 4 7 6 7 12a7 7 0 0 1-14 0c0-4 4-6 7-12z" fill="#1e6fa8"/>
+    </svg>
     <h1>محصّل الغاز</h1>
-    <p class="sub">اكتب بياناتك مرة واحدة، ثم افتح التطبيق ببصمتك.</p>
+    <p class="sub">اكتب بياناتك للدخول وتحميل الملفات.</p>
     <div class="stack">
-      <label class="field"><span>الاسم (اختياري)</span><input id="name" autocomplete="off" placeholder="يُؤخذ تلقائياً من رقم الأداء"></label>
-      <label class="field"><span>رقم الأداء</span><input id="no" inputmode="numeric" autocomplete="off"></label>
-      <label class="field"><span>كلمة السر</span><input id="pw" type="password" autocomplete="off"></label>
+      <label class="field"><span>رقم الأداء</span><input id="no" inputmode="numeric" autocomplete="off" placeholder="رقم الأداء"></label>
+      <label class="field"><span>كلمة السر</span><input id="pw" type="password" autocomplete="off" placeholder="كلمة السر"></label>
     </div>
     <div class="actions" style="margin-top:1rem">
-      <button class="btn" id="go" style="width:100%">دخول وتحميل الملفات</button>
+      <button class="login-btn" id="go" type="button">دخول</button>
     </div>
-    <p class="mute" id="msg" style="text-align:center;margin-top:.8rem"></p>
+    <p class="msg-error" id="msg"></p>
+    <p class="msg-warn" id="warn"></p>
   </section>
 </main>
 <script type="module">
 import {login} from './js/collector/unlock.js';
 import {loadFiles} from './js/collector/fileLoader.js';
 import {isOn,enable,supported} from './js/collector/lock.js';
+import {get} from './js/core/db.js';
 
 const $ = id => document.getElementById(id);
 $('no').value = localStorage.getItem('lastNo') || '';
@@ -47,22 +93,28 @@ async function tryEnableLock(){
     if(!(await supported())) return;
     if(confirm('هل تريد تفعيل فتح التطبيق ببصمة أو نقش أو كلمة مرور الجهاز؟')){
       await enable();
-      alert('تم تفعيل القفل. سيطلب التطبيق بصمتك عند كل فتح.');
+      alert('تم تفعيل القفل.');
     }
   }catch(e){ console.warn(e); }
 }
 
 $('go').onclick = async () => {
-  const b = $('go'), m = $('msg');
-  b.disabled = true; m.textContent = 'جارٍ التحقق…';
-  try{
-    const a = await login($('name').value.trim(), $('no').value, $('pw').value);
+  const b = $('go'), m = $('msg'), w = $('warn');
+  m.textContent = ''; w.textContent = '';
+  b.disabled = true;
+  m.textContent = 'جارٍ التحقق…';
+  try {
+    const a = await login($('no').value, $('pw').value);
     localStorage.setItem('lastNo', a.no);
+    if (!a.name || a.name === '') {
+      w.textContent = 'تنبيه: لم يتم العثور على اسمك في السجلات. يرجى التواصل مع الأدمن لتسجيل بياناتك.';
+    }
     const n = await loadFiles(a, t => m.textContent = t);
     m.textContent = `تم تحميل ${n} عميل`;
     await tryEnableLock();
+    // بعد التحميل، انتقل إلى index.html
     location.replace('index.html');
-  }catch(e){
+  } catch(e) {
     m.textContent = '✕ ' + e.message;
   }
   b.disabled = false;
