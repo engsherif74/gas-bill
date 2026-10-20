@@ -138,9 +138,10 @@ function partialDialog(s){
       <h3>سداد جزئي — شقة ${s.apt}</h3>
       <p class="mute">المديونية الحالية: ${s.count} فاتورة بقيمة ${money(s.value)} جنيه</p>
       <div class="stack">
-        <label class="field"><span>عدد الفواتير المسددة</span><input id="pCount" type="number" min="1" max="${maxCount}" value="1"></label>
-        <label class="field"><span>القيمة المسددة</span><input id="pAmount" type="number" min="1" value="0" placeholder="أدخل القيمة"></label>
+        <label class="field"><span>عدد الفواتير المسددة</span><input id="pCount" type="number" inputmode="numeric" placeholder="أدخل العدد"></label>
+        <label class="field"><span>القيمة المسددة</span><input id="pAmount" type="number" inputmode="numeric" placeholder="أدخل القيمة"></label>
       </div>
+      <div id="pError" style="color:var(--bad);font-weight:700;text-align:center;font-size:0.85rem;min-height:20px"></div>
       <div class="actions">
         <button class="btn" id="pOk" type="button">تأكيد السداد</button>
         <button class="btn ghost" id="pCancel" type="button">إلغاء</button>
@@ -149,14 +150,32 @@ function partialDialog(s){
     document.body.append(d);
     d.showModal();
     d.querySelector('#pCancel').onclick = () => { d.close(); d.remove(); resolve(null); };
-    d.querySelector('#pOk').onclick = () => {
+    d.querySelector('#pOk').onclick = async () => {
+      const errEl = d.querySelector('#pError');
       const count = +d.querySelector('#pCount').value;
       const amount = +d.querySelector('#pAmount').value;
-      if (!(count > 0) || !(amount > 0)){ alert('أدخل قيماً صحيحة'); return; }
-      if (count > maxCount){ alert('عدد الفواتير أكبر من المديونية'); return; }
-      if (amount > s.value){ alert('القيمة أكبر من المديونية'); return; }
+
+      if (!(count > 0) || !(amount > 0)){
+        errEl.textContent = 'أدخل قيماً صحيحة';
+        return;
+      }
+      if (count > maxCount){
+        errEl.textContent = `عدد الفواتير أكبر من المديونية (${maxCount})`;
+        return;
+      }
+      if (amount > s.value){
+        errEl.textContent = `القيمة أكبر من المديونية (${money(s.value)})`;
+        return;
+      }
+      if (count === maxCount || amount === s.value){
+        if (!confirm('هذا سداد كلي. هل تريد الموافقة على السداد الكلي؟')) return;
+        d.close(); d.remove();
+        resolve({count: s.count, amount: s.value, full: true});
+        return;
+      }
+
       d.close(); d.remove();
-      resolve({count, amount});
+      resolve({count, amount, full: false});
     };
   });
 }
@@ -216,9 +235,15 @@ function bind(el, a, v, again){
       if (act === 'partial'){
         const res = await partialDialog(s);
         if (res){
-          await partialPay(st.no, s, res, st.adv);
-          await refresh();
-          toast(`تم سداد جزئي: ${res.count} فاتورة (${money(res.amount)} جنيه)`);
+          if (res.full){
+            await pay(st.no, [s], st.adv);
+            await refresh();
+            toast(`تم سداد شقة ${s.apt} بالكامل (${money(res.amount)} جنيه)`);
+          } else {
+            await partialPay(st.no, s, res, st.adv);
+            await refresh();
+            toast(`تم سداد جزئي: ${res.count} فاتورة (${money(res.amount)} جنيه)`);
+          }
           el.querySelectorAll('[data-pop]').forEach(p => p.hidden = true);
           again();
         }
@@ -276,6 +301,10 @@ export async function renderHome(el){
   const t = tot(rows);
 
   let ov = null;
+  // تحويل القطاع والبلوك إلى قوائم منسدلة
+  const optSec = secs.map(x => `<option ${x===st.sector?'selected':''} value="${x}">قطاع ${x}</option>`).join('');
+  const optBlk = blks.map(x => `<option ${x===st.blk?'selected':''} value="${x}">بلوك ${x}</option>`).join('');
+
   let html = `
   <div class="search-box">
     <label class="search" style="display:flex;align-items:center;gap:8px;background:var(--s1);border:1.5px solid var(--line);border-radius:16px;padding:0 12px;height:50px;box-shadow:var(--sh);margin:12px 0">
@@ -290,8 +319,8 @@ export async function renderHome(el){
     </div>
   </div>
   <div class="pick">
-    <label class="field"><span>القطاع</span><input id="secIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.sector||''}" data-next="blkIn"></label>
-    <label class="field"><span>البلوك</span><input id="blkIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.blk||''}" data-next="bldIn"></label>
+    <label class="field"><span>القطاع</span><select id="secIn" class="num2" style="width:100%;height:44px;font-weight:800;text-align:center">${optSec}</select></label>
+    <label class="field"><span>البلوك</span><select id="blkIn" class="num2" style="width:100%;height:44px;font-weight:800;text-align:center">${optBlk}</select></label>
     <label class="field"><span>العمارة</span><input id="bldIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.open||''}" data-next="aptIn"></label>
     <label class="field"><span>الشقة</span><input id="aptIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="" data-next=""></label>
   </div>
@@ -339,21 +368,17 @@ export async function renderHome(el){
       }
     });
   }
-  autoNext(secIn); autoNext(blkIn); autoNext(bldIn); autoNext(aptIn);
+  autoNext(bldIn); autoNext(aptIn);
 
-  secIn.addEventListener('input', () => {
-    if (secIn.value.length === 2){
-      st.sector = secIn.value;
-      st.open = null;
-      setTimeout(() => renderHome(el), 150);
-    }
+  secIn.addEventListener('change', () => {
+    st.sector = secIn.value;
+    st.open = null;
+    renderHome(el);
   });
-  blkIn.addEventListener('input', () => {
-    if (blkIn.value.length === 2){
-      st.blk = blkIn.value;
-      st.open = null;
-      setTimeout(() => renderHome(el), 150);
-    }
+  blkIn.addEventListener('change', () => {
+    st.blk = blkIn.value;
+    st.open = null;
+    renderHome(el);
   });
   bldIn.addEventListener('input', () => {
     if (bldIn.value.length === 2){
@@ -443,7 +468,7 @@ export async function renderHome(el){
               <div class="apt-val">${money(due(s))}</div>
             </div>`;
           }).join('');
-          // عند الضغط على نتيجة البحث، نفتح العمارة
+          // عند الضغط على نتيجة البحث، نفتح العمارة فقط
           qres.querySelectorAll('[data-open]').forEach(btn => {
             btn.onclick = () => {
               const k = btn.dataset.open;
@@ -452,9 +477,10 @@ export async function renderHome(el){
                 st.sector = s.sector;
                 st.blk = s.blk;
                 st.open = s.bld;
+                st.bld = s.bld;
                 st.sel.clear();
                 renderHome(el);
-                window.scrollTo({top:0, behavior:'smooth'});
+                setTimeout(() => window.scrollTo({top:0, behavior:'smooth'}), 50);
               }
             };
           });
