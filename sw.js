@@ -1,4 +1,4 @@
-const CACHE = 'collect-v31'; // رقم كاش جديد لإجبار التحديث
+const CACHE = 'collect-v35'; // رقم كاش جديد لإجبار التحديث
 const SHELL = [
   './',
   'index.html',
