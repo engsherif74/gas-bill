@@ -1,4 +1,4 @@
-import {st, esc, refresh, renderBuilding} from './browse.js';
+import {st, esc, refresh} from './browse.js';
 import {keyOf as key} from './ledger.js';
 import {searchKey} from '../core/normalize.js';
 import {money} from '../core/utils.js';
@@ -14,11 +14,11 @@ export async function renderSearch(el) {
   el.innerHTML = `
     <div class="card">
       <div class="tools" style="margin-bottom:1rem">
-        <button class="btn ${mode === 'name' ? 'primary' : 'ghost'} sm" id="modeName">بحث بالاسم</button>
-        <button class="btn ${mode === 'number' ? 'primary' : 'ghost'} sm" id="modeNumber">بحث برقم المشترك</button>
+        <button class="btn ${mode === 'name' ? '' : 'ghost'} sm" id="modeName">بحث بالاسم</button>
+        <button class="btn ${mode === 'number' ? '' : 'ghost'} sm" id="modeNumber">بحث برقم المشترك</button>
       </div>
       <div id="searchName" ${mode !== 'name' ? 'hidden' : ''}>
-        <input id="q" class="srch" placeholder="اكتب اسم العميل…" value="${esc(q)}" autocomplete="off" style="color:var(--ink);background:var(--s1)">
+        <input id="q" class="srch" placeholder="اكتب اسم العميل…" value="${esc(q)}" autocomplete="off" style="color:var(--ink);background:var(--s1);width:100%;padding:.8rem;border:1.5px solid var(--line);border-radius:12px">
         <div class="tools" style="margin-top:.5rem">
           <label class="chk"><input type="radio" name="sc" value="route" ${scope === 'route' ? 'checked' : ''}> خط سيري فقط</label>
           <label class="chk"><input type="radio" name="sc" value="all" ${scope === 'all' ? 'checked' : ''}> الملف كاملاً</label>
@@ -26,9 +26,12 @@ export async function renderSearch(el) {
       </div>
       <div id="searchNumber" ${mode !== 'number' ? 'hidden' : ''}>
         <div class="pick">
-          <label class="field"><span>القطاع</span><input id="numSec" class="num2" type="text" inputmode="numeric" maxlength="2" placeholder="—"></label>
-          <label class="field"><span>البلوك</span><input id="numBlk" class="num2" type="text" inputmode="numeric" maxlength="2" placeholder="—"></label>
-          <label class="field"><span>العمارة</span><input id="numBld" class="num2" type="text" inputmode="numeric" maxlength="2" placeholder="—"></label>
+          <label class="field"><span>القطاع</span><input id="numSec" class="num2" type="text" inputmode="numeric" maxlength="2" placeholder="—" data-next="numBlk"></label>
+          <label class="field"><span>البلوك</span><input id="numBlk" class="num2" type="text" inputmode="numeric" maxlength="2" placeholder="—" data-next="numBld"></label>
+          <label class="field"><span>العمارة</span><input id="numBld" class="num2" type="text" inputmode="numeric" maxlength="2" placeholder="—" data-next=""></label>
+        </div>
+        <div class="actions" style="margin-top:.5rem">
+          <button class="btn sm" id="numGo">بحث</button>
         </div>
       </div>
     </div>
@@ -55,7 +58,7 @@ export async function renderSearch(el) {
           if (s) {
             st.sector = s.sector; st.blk = s.blk; st.open = s.bld; st.bld = s.bld;
             st.sel.clear();
-            history.pushState({v: 'bld'}, '');
+            // الانتقال إلى صفحة التحصيل وفتح العمارة
             document.querySelectorAll('#tabs button').forEach(btn => btn.classList.remove('on'));
             const ev = new CustomEvent('openTab', {detail: {tab: 'home'}});
             window.dispatchEvent(ev);
@@ -80,7 +83,7 @@ export async function renderSearch(el) {
         const [x, bl, d] = b.dataset.g.split('|');
         st.sector = x; st.blk = bl; st.bld = d; st.open = d; st.all = scope === 'all';
         st.sel.clear();
-        history.pushState({v: 'bld'}, '');
+        document.querySelectorAll('#tabs button').forEach(btn => btn.classList.remove('on'));
         const ev = new CustomEvent('openTab', {detail: {tab: 'home'}});
         window.dispatchEvent(ev);
         setTimeout(() => window.scrollTo({top: 0, behavior: 'smooth'}), 50);
@@ -95,9 +98,22 @@ export async function renderSearch(el) {
     el.querySelector('#q').oninput = e => { q = e.target.value; draw(); };
     el.querySelectorAll('[name=sc]').forEach(r => r.onchange = () => { scope = r.value; draw(); });
   } else {
+    // الانتقال التلقائي
     ['numSec', 'numBlk', 'numBld'].forEach(id => {
-      el.querySelector('#' + id).oninput = () => draw();
+      const inp = el.querySelector('#' + id);
+      inp.addEventListener('input', () => {
+        const v = String(inp.value || '').replace(/\D/g, '').slice(0, 2);
+        if (inp.value !== v) inp.value = v;
+        if (v.length === 2) {
+          const next = inp.dataset.next;
+          if (next) {
+            const n = el.querySelector('#' + next);
+            if (n) { n.focus(); n.select?.(); }
+          }
+        }
+      });
     });
+    el.querySelector('#numGo').onclick = draw;
   }
 
   draw();
