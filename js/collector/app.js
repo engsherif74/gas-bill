@@ -14,13 +14,13 @@ const $ = id => document.getElementById(id);
 const view = $('view');
 let tab = 'home';
 
-// === منطق الوضع الليلي ===
+// === الوضع الليلي ===
 function setTheme(t){
   if (t) document.documentElement.setAttribute('data-theme', t);
   else document.documentElement.removeAttribute('data-theme');
   const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
                (!t && matchMedia('(prefers-color-scheme:dark)').matches);
-  if($('theme')) $('theme').textContent = dark ? '☀️' : '🌙';
+  if ($('theme')) $('theme').textContent = dark ? '☀️' : '🌙';
   const meta = document.querySelector('meta[name=theme-color]');
   if (meta) meta.content = dark ? '#0a524c' : '#0f766e';
 }
@@ -36,7 +36,7 @@ const R = {
 function show(t){
   tab = t;
   st.bld = null; st.all = false;
-  $('back').hidden = true;
+  if ($('back')) $('back').hidden = true;
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on', b.dataset.t === t));
   try { R[t](); } catch(e){ console.error('show('+t+')', e); toast('خطأ: ' + e.message); }
 }
@@ -67,7 +67,7 @@ async function reload(){
     const f2 = await get('meta','file');
     st.cycle = f2.cycle;
     renderMenu();
-    $('who').textContent = `${a.name} · إصدار ${f2.cycle}`;
+    if ($('who')) $('who').textContent = `${a.name} · إصدار ${f2.cycle}`;
     show(tab);
   }catch(e){ toast('خطأ: ' + e.message); console.error(e); }
 }
@@ -76,25 +76,25 @@ let unlocked = false, hiddenAt = 0, booted = false;
 const LOCK_MS = 60 * 60 * 1000;
 
 function showLocked(){
-  $('app').hidden = true;
-  $('tabs').hidden = true;
-  $('locked').setAttribute('data-show', '1');
+  if ($('app')) $('app').hidden = true;
+  if ($('tabs')) $('tabs').hidden = true;
+  if ($('locked')) $('locked').setAttribute('data-show', '1');
   tryUnlock();
 }
 
 function hideLocked(){
-  $('locked').removeAttribute('data-show');
+  if ($('locked')) $('locked').removeAttribute('data-show');
 }
 
 async function tryUnlock(){
-  $('lmsg').textContent = '';
+  if ($('lmsg')) $('lmsg').textContent = '';
   try{
     await verify();
     unlocked = true;
     hideLocked();
     await boot();
   }catch(e){
-    $('lmsg').textContent = 'لم يتم التحقق. اضغط «فتح» وحاول مرة أخرى.';
+    if ($('lmsg')) $('lmsg').textContent = 'لم يتم التحقق. اضغط «فتح» وحاول مرة أخرى.';
     console.warn(e);
   }
 }
@@ -107,26 +107,26 @@ async function boot(){
     if (!unlocked && await isOn()){ showLocked(); return; }
     booted = true;
     st.no = a.no; st.cycle = f.cycle; st.who = a.name;
-    $('who').textContent = `${a.name} · إصدار ${f.cycle}`;
+    if ($('who')) $('who').textContent = `${a.name} · إصدار ${f.cycle}`;
     hideLocked();
-    $('diag').removeAttribute('data-show');
+    if ($('diag')) $('diag').removeAttribute('data-show');
     if ($('menuBtn')) $('menuBtn').hidden = false;
-    $('app').hidden = false;
-    $('tabs').hidden = false;
+    if ($('app')) $('app').hidden = false;
+    if ($('tabs')) $('tabs').hidden = false;
     const ft = document.getElementById('footer');
     if (ft) ft.hidden = false;
     try { renderMenu(); } catch(e){ console.warn('menu', e); }
     try { await refresh(); } catch(e){ console.warn('refresh', e); }
     try { show('home'); } catch(e){ console.warn('show', e); }
-    try { check(); } catch(e){ console.warn('check', e); }
+    try { check(()=>{ if ($('upd')) $('upd').hidden = false; }); } catch(e){ console.warn('check', e); }
   }catch(e){
     console.error('boot', e);
-    $('who').textContent = 'خطأ: ' + e.message;
+    if ($('who')) $('who').textContent = 'خطأ: ' + e.message;
   }
 }
 
-$('unlockBtn').onclick = tryUnlock;
-$('relogin').onclick = async () => {
+if ($('unlockBtn')) $('unlockBtn').onclick = tryUnlock;
+if ($('relogin')) $('relogin').onclick = async () => {
   if (!confirm('ستدخل بالاسم وكلمة السر من جديد. بياناتك تبقى محفوظة. متابعة؟')) return;
   try{ await disable(); }catch(e){}
   try{ await del('meta', 'auth'); }catch(e){}
@@ -156,7 +156,7 @@ window.addEventListener('openTab', e => {
   show(t);
 });
 
-$('back').onclick = () => history.back();
+if ($('back')) $('back').onclick = () => history.back();
 addEventListener('popstate', () => {
   if (st.sel.size && !confirm('لديك تحديد غير محفوظ، هل تخرج؟')){
     history.pushState({v: 'bld'}, ''); return;
@@ -165,6 +165,7 @@ addEventListener('popstate', () => {
 });
 
 const net = () => {
+  if (!$('net')) return;
   $('net').textContent = navigator.onLine ? 'متصل' : 'بدون إنترنت';
   $('net').dataset.on = navigator.onLine;
 };
@@ -186,10 +187,10 @@ if ('serviceWorker' in navigator){
   });
 }
 
-if ($('menuBtn')) $('menuBtn').onclick = e => { e.stopPropagation(); $('menu').hidden = !$('menu').hidden; };
+if ($('menuBtn')) $('menuBtn').onclick = e => { e.stopPropagation(); if ($('menu')) $('menu').hidden = !$('menu').hidden; };
 document.addEventListener('click', () => { if ($('menu')) $('menu').hidden = true; });
 
-// التشغيل الأولي للوضع الليلي
+// تفعيل زر الوضع الليلي
 setTheme(localStorage.getItem('collect_theme') || '');
 if ($('theme')) {
   $('theme').onclick = () => {
