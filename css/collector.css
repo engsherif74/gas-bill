@@ -619,3 +619,17 @@ tr:nth-child(even) td { background: color-mix(in srgb, var(--s1) 50%, transparen
   max-width: 640px;
   margin: 0 auto;
 }
+
+/* الكارت السفلي - يظهر دائماً */
+.bar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 62px;
+  background: var(--s1);
+  border-top: 3px solid var(--br);
+  padding: .6rem .8rem;
+  z-index: 20;
+  box-shadow: 0 -4px 16px rgba(0,0,0,.08);
+  max-width: 640px;
+  margin: 0 auto;
+}
