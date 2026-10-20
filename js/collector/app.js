@@ -14,25 +14,36 @@ const $ = id => document.getElementById(id);
 const view = $('view');
 let tab = 'home';
 
+// === منطق الوضع الليلي ===
+function setTheme(t){
+  if (t) document.documentElement.setAttribute('data-theme', t);
+  else document.documentElement.removeAttribute('data-theme');
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+               (!t && matchMedia('(prefers-color-scheme:dark)').matches);
+  if($('theme')) $('theme').textContent = dark ? '☀️' : '🌙';
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) meta.content = dark ? '#0a524c' : '#0f766e';
+}
+
 const R = {
-  home: () => renderHome(view),
-  ledger: () => renderLedger(view, reload, doExport),
-  search: () => renderSearch(view),
-  archive: () => renderArchive(view),
-  details: () => renderDetails(view, () => show('home'))
+  home:()=>renderHome(view),
+  ledger:()=>renderLedger(view, reload, doExport),
+  search:()=>renderSearch(view),
+  archive:()=>renderArchive(view),
+  details:()=>renderDetails(view, ()=>show('home'))
 };
 
 function show(t){
   tab = t;
   st.bld = null; st.all = false;
   $('back').hidden = true;
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  try { R[t](); } catch(e){ console.error('show(' + t + ')', e); toast('خطأ: ' + e.message); }
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on', b.dataset.t === t));
+  try { R[t](); } catch(e){ console.error('show('+t+')', e); toast('خطأ: ' + e.message); }
 }
 
 async function doExport(){
   try{
-    const a = await get('meta', 'auth');
+    const a = await get('meta','auth');
     const r = await exportArchive(a);
     toast(r.n ? `جُهّز ${r.n} عملية` : 'لا جديد');
   }catch(e){ toast(e.message); }
@@ -40,20 +51,20 @@ async function doExport(){
 
 async function reload(){
   try{
-    const a = await get('meta', 'auth');
-    const f = await get('meta', 'file');
+    const a = await get('meta','auth');
+    const f = await get('meta','file');
     toast('جارٍ تحديث الملف…');
-    await loadFiles(a, () => {}, async n => {
+    await loadFiles(a, ()=>{}, async n=>{
       const r = await reconcile(st.S, n.pairs, f?.cycle, n.full.cycle);
-      await put('previousFile', 'prev', {cycle: f?.cycle, subs: st.S});
+      await put('previousFile','prev', {cycle: f?.cycle, subs: st.S});
       if (r.other.length){
         await choose(`سيتحول ${r.other.length} عميل إلى مسدد. هل تتابع؟`, ['موافق'], false);
-        await putMany('otherSource', r.other.map(o => [o.id, o]));
+        await putMany('otherSource', r.other.map(o=>[o.id, o]));
       }
     });
     await refresh();
     toast('تم تحديث الملف');
-    const f2 = await get('meta', 'file');
+    const f2 = await get('meta','file');
     st.cycle = f2.cycle;
     renderMenu();
     $('who').textContent = `${a.name} · إصدار ${f2.cycle}`;
@@ -90,8 +101,8 @@ async function tryUnlock(){
 
 async function boot(){
   try{
-    const a = await get('meta', 'auth');
-    const f = await get('meta', 'file');
+    const a = await get('meta','auth');
+    const f = await get('meta','file');
     if (!a || !f){ location.replace('login.html'); return; }
     if (!unlocked && await isOn()){ showLocked(); return; }
     booted = true;
@@ -175,8 +186,19 @@ if ('serviceWorker' in navigator){
   });
 }
 
-$('menuBtn').onclick = e => { e.stopPropagation(); $('menu').hidden = !$('menu').hidden; };
-document.addEventListener('click', () => { $('menu').hidden = true; });
+if ($('menuBtn')) $('menuBtn').onclick = e => { e.stopPropagation(); $('menu').hidden = !$('menu').hidden; };
+document.addEventListener('click', () => { if ($('menu')) $('menu').hidden = true; });
+
+// التشغيل الأولي للوضع الليلي
+setTheme(localStorage.getItem('collect_theme') || '');
+if ($('theme')) {
+  $('theme').onclick = () => {
+    const dark = $('theme').textContent === '☀️';
+    const t = dark ? 'light' : 'dark';
+    localStorage.setItem('collect_theme', t);
+    setTheme(t);
+  };
+}
 
 console.log('[app] started');
 boot();
