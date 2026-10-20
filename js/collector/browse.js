@@ -65,7 +65,7 @@ export function receipt(e){
   w.document.close();
 }
 
-/* ===== تصميم بطاقة الشقة (السطر الأول: الاسم + القيمة، السطر الثاني: الشقة + خيارات) ===== */
+/* ===== تصميم بطاقة الشقة ===== */
 function aptsView(a){
   const ch = a.filter(s => st.sel.has(key(s)));
   const ct = tot(ch);
@@ -107,6 +107,7 @@ function aptsView(a){
 
   const html = `<div class="bh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
     <h2 style="margin:0;font-size:1rem">عمارة ${st.bld} <span style="color:var(--br);font-weight:700">— ${money(allTot.value)} ج</span></h2>
+    <label class="chk" style="display:flex;gap:.4rem;align-items:center;font-weight:700"><input type="checkbox" id="all" ${ch.length===a.length&&a.length?'checked':''}> تحديد الكل</label>
   </div>
   <div class="apt-list">${cards}</div>`;
   return {html, ch, ct, allTot};
@@ -133,26 +134,15 @@ function partialDialog(s){
     const d = document.createElement('dialog');
     d.className = 'partial-dialog';
     const maxCount = s.count || 1;
-    const unitValue = maxCount > 0 ? Math.round((s.value / maxCount) * 100) / 100 : s.value;
-    const mOpts = monthOptions(s);
-    let options = '';
-    if (mOpts && mOpts.length > 1){
-      mOpts.forEach(opt => {
-        options += `<button class="partial-opt" type="button" data-cnt="${opt.count}" data-amt="${opt.amount}">
-          عدد ${opt.count} — ${money(opt.amount)} جنيه
-          <small>${opt.label}</small>
-        </button>`;
-      });
-    }
+    const unitValue = maxCount > 0 ? Math.round((s.value / maxCount) * 100) / 100 : 0;
+    // لا نستخدم monthOptions هنا لتجنب القيم الافتراضية
     d.innerHTML = `
       <h3>سداد جزئي — شقة ${s.apt}</h3>
       <p class="mute">المديونية الحالية: ${s.count} فاتورة بقيمة ${money(s.value)} جنيه</p>
-      ${options ? `<div class="partial-options">${options}</div>` : `
       <div class="stack">
         <label class="field"><span>عدد الفواتير المسددة</span><input id="pCount" type="number" min="1" max="${maxCount}" value="1"></label>
-        <label class="field"><span>القيمة المسددة</span><input id="pAmount" type="number" min="1" value="${unitValue}"></label>
+        <label class="field"><span>القيمة المسددة</span><input id="pAmount" type="number" min="1" value="0" placeholder="أدخل القيمة"></label>
       </div>
-      `}
       <div class="actions">
         <button class="btn" id="pOk" type="button">تأكيد السداد</button>
         <button class="btn ghost" id="pCancel" type="button">إلغاء</button>
@@ -162,45 +152,31 @@ function partialDialog(s){
     d.showModal();
     d.querySelector('#pCancel').onclick = () => { d.close(); d.remove(); resolve(null); };
     d.querySelector('#pOk').onclick = () => {
-      let count, amount;
-      if (options){
-        const sel = d.querySelector('.partial-opt.selected');
-        if (!sel){ alert('اختر إحدى القيم'); return; }
-        count = +sel.dataset.cnt;
-        amount = +sel.dataset.amt;
-      } else {
-        count = +d.querySelector('#pCount').value;
-        amount = +d.querySelector('#pAmount').value;
-      }
+      const count = +d.querySelector('#pCount').value;
+      const amount = +d.querySelector('#pAmount').value;
       if (!(count > 0) || !(amount > 0)){ alert('أدخل قيماً صحيحة'); return; }
       if (count > maxCount){ alert('عدد الفواتير أكبر من المديونية'); return; }
       if (amount > s.value){ alert('القيمة أكبر من المديونية'); return; }
       d.close(); d.remove();
       resolve({count, amount});
     };
-    d.querySelectorAll('.partial-opt').forEach(b => {
-      b.onclick = () => {
-        d.querySelectorAll('.partial-opt').forEach(x => x.classList.remove('selected'));
-        b.classList.add('selected');
-      };
-    });
   });
 }
 
 function bind(el, a, v, again){
-  // الـ checkbox يعمل
+  // checkbox
   el.querySelectorAll('[data-k]').forEach(c => {
     c.onchange = () => { c.checked ? st.sel.add(c.dataset.k) : st.sel.delete(c.dataset.k); again(); };
   });
 
-  // تحديد الكل (يظهر في بعض الحالات)
+  // تحديد الكل
   const allCb = el.querySelector('#all');
   if (allCb) allCb.onchange = e => {
     a.forEach(s => e.target.checked ? st.sel.add(key(s)) : st.sel.delete(key(s)));
     again();
   };
 
-  // الضغط على الاسم (للتحديد أو إلغاء التحديد)
+  // الضغط على الاسم
   el.querySelectorAll('[data-nm]').forEach(nm => {
     nm.onclick = ev => {
       ev.stopPropagation();
