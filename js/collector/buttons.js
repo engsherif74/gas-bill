@@ -85,7 +85,17 @@ export async function renderMenu(){
       alert(e.message || 'تعذر تنفيذ العملية');
     }
     renderMenu();
+    html += `<button type="button" data-update="1">🔄 تحديث الملف</button>`;
   };
+
+m.querySelector('[data-update]').onclick = () => {
+  m.hidden = true;
+  if (window.reloadData) window.reloadData();
+  else toast('جاري التحديث...'); // أو استدعاء دالة reload من app.js
+};
+
+
+  
 
   // زر الحاسبة
   m.querySelector('[data-calc]').onclick = () => {
