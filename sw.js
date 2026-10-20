@@ -1,4 +1,4 @@
-const CACHE = 'collect-v30'; // رفعنا رقم الكاش لإجبار التحديث
+const CACHE = 'collect-v31'; // رقم كاش جديد لإجبار التحديث
 const SHELL = [
   './',
   'index.html',
@@ -22,7 +22,7 @@ const SHELL = [
   'js/collector/lock.js',
   'js/collector/monthly.js',
   'js/collector/exportExcel.js',
-  'js/collector/snapshots.js', // تأكد من وجود هذا الملف
+  'js/collector/snapshots.js', // تأكد من وجود هذا الملف في المسار الصحيح
   'pages/print.html',
   'pages/reading.html',
   'js/collector/search.js',
@@ -41,12 +41,12 @@ self.addEventListener('install', function(e){
   self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE).then(function(cache){
-      // نستخدم Promise.allSettled بدلاً من addAll
-      // حتى لا يفشل الكاش بالكامل بسبب ملف واحد مفقود
+      // التعديل الجذري: استخدام allSettled بدلاً من addAll
+      // بحيث إذا فشل ملف واحد (404)، لا يفشل الكاش بالكامل
       return Promise.allSettled(
         SHELL.map(function(url){
           return cache.add(url).catch(function(err){
-            console.warn('⚠️ فشل تحميل الملف في الكاش:', url, err);
+            console.warn('⚠️ ملف مفقود (404) لم يتم تخزينه:', url);
           });
         })
       );
@@ -71,13 +71,10 @@ self.addEventListener('message', function(e){
 self.addEventListener('fetch', function(e){
   var u = new URL(e.request.url);
   if (e.request.method !== 'GET' || u.origin !== location.origin) return;
-  
-  // لا تخزن ملفات البيانات المشفرة أو ملف الإصدارات في الكاش
   if (u.pathname.indexOf('/data/') >= 0 || u.pathname.endsWith('version.json')){
     e.respondWith(fetch(e.request, {cache: 'no-store'}));
     return;
   }
-
   e.respondWith((async function(){
     var cached = await caches.match(e.request);
     if (cached) return cached;
@@ -87,12 +84,8 @@ self.addEventListener('fetch', function(e){
       caches.open(CACHE).then(function(x){ return x.put(e.request, c); });
       return r;
     }catch(err){
-      // في حال فشل الشبكة، نرجع الصفحة الرئيسية إذا كان الطلب لصفحة HTML
-      if (e.request.mode === 'navigate') {
-        return caches.match('index.html');
-      }
-      // أو نرجع استجابة فارغة إذا كان الملف مفقوداً
-      return new Response('', {status: 404, statusText: 'Not Found'});
+      if (e.request.mode === 'navigate') return caches.match('index.html');
+      return new Response('', {status: 404});
     }
   })());
 });
