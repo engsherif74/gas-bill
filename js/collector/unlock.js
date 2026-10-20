@@ -10,18 +10,25 @@ export const getBin = async p => {
   return new Uint8Array(await r.arrayBuffer());
 };
 
-export async function login(name, no, pw) {
-  // ملاحظة: أصبح التوقيع (no, pw) لأننا حذفنا الاسم
+export async function login(no, pw) {
   no = latin(String(no).trim());
   pw = String(pw).trim();
+
   const keys = JSON.parse(new TextDecoder().decode(await getBin('data/keys.bin')));
   const env = keys.envelopes[no];
-  if (!env) throw new Error('رقم الأداء غير مسجل. المسجل: ' + Object.keys(keys.envelopes).slice(0, 5).join('، '));
-  // الاسم يُستدعى من keys.names إذا وُجد، وإلا يُستخدم "محصّل"
+
+  if (!env) {
+    // إذا لم يُعثر على الرقم، نطبع المفاتيح المتاحة للمساعدة
+    const available = Object.keys(keys.envelopes);
+    console.error('الرقم المُدخل:', JSON.stringify(no), '| المفاتيح المتاحة:', available);
+    throw new Error('رقم الأداء غير مسجل. المسجل: ' + available.slice(0, 5).join('، '));
+  }
+
   let userName = keys.names?.[no] || 'محصّل';
   if (!keys.names?.[no]) {
     console.warn('لم يتم العثور على اسم المحصل. سيتم استخدام "محصّل" كاسم افتراضي. يرجى التواصل مع الأدمن.');
   }
+
   const userKey = await deriveKey(pw, no);
   let master;
   try {
@@ -29,6 +36,7 @@ export async function login(name, no, pw) {
   } catch {
     throw new Error('كلمة السر غير صحيحة');
   }
+
   const a = {name: userName, no, userKey, master};
   await put('meta', 'auth', a);
   return a;
