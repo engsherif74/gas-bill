@@ -44,17 +44,20 @@
     padding: 1rem;
     font-size: 1.1rem;
     font-weight: 800;
-    background: var(--br);
+    background: #0f766e;
     color: #fff;
     border: 0;
     border-radius: 12px;
     cursor: pointer;
     transition: background .2s;
+    min-height: 50px;
   }
-  .login-btn:hover { background: var(--br2); }
+  .login-btn:hover { background: #14b8a6; }
   .login-btn:disabled { opacity: .5; cursor: not-allowed; }
-  .msg-error { color: var(--bad); font-weight: 700; text-align: center; margin-top: .8rem; }
-  .msg-warn { color: var(--ac); font-weight: 700; text-align: center; margin-top: .8rem; }
+  .msg-error { color: #dc2626; font-weight: 700; text-align: center; margin-top: .8rem; font-size: .9rem; min-height: 20px; }
+  .msg-warn { color: #f59e0b; font-weight: 700; text-align: center; margin-top: .8rem; font-size: .85rem; min-height: 20px; }
+  .msg-info { color: #0f766e; font-weight: 700; text-align: center; margin-top: .8rem; font-size: .9rem; min-height: 20px; }
+  .field input { color: var(--ink) !important; }
 </style>
 </head>
 <body>
@@ -76,13 +79,13 @@
     </div>
     <p class="msg-error" id="msg"></p>
     <p class="msg-warn" id="warn"></p>
+    <p class="msg-info" id="info"></p>
   </section>
 </main>
 <script type="module">
 import {login} from './js/collector/unlock.js';
 import {loadFiles} from './js/collector/fileLoader.js';
 import {isOn,enable,supported} from './js/collector/lock.js';
-import {get} from './js/core/db.js';
 
 const $ = id => document.getElementById(id);
 $('no').value = localStorage.getItem('lastNo') || '';
@@ -99,23 +102,45 @@ async function tryEnableLock(){
 }
 
 $('go').onclick = async () => {
-  const b = $('go'), m = $('msg'), w = $('warn');
-  m.textContent = ''; w.textContent = '';
+  const b = $('go'), m = $('msg'), w = $('warn'), info = $('info');
+  m.textContent = ''; w.textContent = ''; info.textContent = '';
   b.disabled = true;
   m.textContent = 'جارٍ التحقق…';
+  
+  const noValue = $('no').value.trim();
+  const pwValue = $('pw').value.trim();
+  
+  if (!noValue) {
+    m.textContent = '✕ اكتب رقم الأداء';
+    b.disabled = false;
+    return;
+  }
+  if (!pwValue) {
+    m.textContent = '✕ اكتب كلمة السر';
+    b.disabled = false;
+    return;
+  }
+  
+  info.textContent = `جارٍ الاتصال بـ keys.bin…`;
+  
   try {
-    const a = await login($('no').value, $('pw').value);
+    const a = await login(noValue, pwValue);
+    info.textContent = `تم التحقق من الرقم ${a.no}`;
     localStorage.setItem('lastNo', a.no);
-    if (!a.name || a.name === '') {
-      w.textContent = 'تنبيه: لم يتم العثور على اسمك في السجلات. يرجى التواصل مع الأدمن لتسجيل بياناتك.';
+    
+    if (!a.name || a.name === 'محصّل') {
+      w.textContent = 'تنبيه: لم يتم العثور على اسمك في السجلات. يرجى التواصل مع الأدمن.';
     }
-    const n = await loadFiles(a, t => m.textContent = t);
-    m.textContent = `تم تحميل ${n} عميل`;
+    
+    info.textContent = `جارٍ تحميل الملفات…`;
+    const n = await loadFiles(a, t => info.textContent = t);
+    info.textContent = `تم تحميل ${n} عميل. جارٍ الدخول…`;
+    
     await tryEnableLock();
-    // بعد التحميل، انتقل إلى index.html
     location.replace('index.html');
   } catch(e) {
     m.textContent = '✕ ' + e.message;
+    console.error('Login error:', e);
   }
   b.disabled = false;
 };
