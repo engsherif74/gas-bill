@@ -65,7 +65,6 @@ export function receipt(e){
   w.document.close();
 }
 
-/* ===== تصميم بطاقة الشقة ===== */
 function aptsView(a){
   const ch = a.filter(s => st.sel.has(key(s)));
   const ct = tot(ch);
@@ -155,25 +154,15 @@ function partialDialog(s){
       const count = +d.querySelector('#pCount').value;
       const amount = +d.querySelector('#pAmount').value;
 
-      if (!(count > 0) || !(amount > 0)){
-        errEl.textContent = 'أدخل قيماً صحيحة';
-        return;
-      }
-      if (count > maxCount){
-        errEl.textContent = `عدد الفواتير أكبر من المديونية (${maxCount})`;
-        return;
-      }
-      if (amount > s.value){
-        errEl.textContent = `القيمة أكبر من المديونية (${money(s.value)})`;
-        return;
-      }
+      if (!(count > 0) || !(amount > 0)){ errEl.textContent = 'أدخل قيماً صحيحة'; return; }
+      if (count > maxCount){ errEl.textContent = `عدد الفواتير أكبر من المديونية (${maxCount})`; return; }
+      if (amount > s.value){ errEl.textContent = `القيمة أكبر من المديونية (${money(s.value)})`; return; }
       if (count === maxCount || amount === s.value){
         if (!confirm('هذا سداد كلي. هل تريد الموافقة على السداد الكلي؟')) return;
         d.close(); d.remove();
         resolve({count: s.count, amount: s.value, full: true});
         return;
       }
-
       d.close(); d.remove();
       resolve({count, amount, full: false});
     };
@@ -238,11 +227,11 @@ function bind(el, a, v, again){
           if (res.full){
             await pay(st.no, [s], st.adv);
             await refresh();
-            toast(`تم سداد شقة ${s.apt} بالكامل (${money(res.amount)} جنيه)`);
+            toast(`تم سداد شقة ${s.apt} بالكامل`);
           } else {
             await partialPay(st.no, s, res, st.adv);
             await refresh();
-            toast(`تم سداد جزئي: ${res.count} فاتورة (${money(res.amount)} جنيه)`);
+            toast(`تم سداد جزئي: ${res.count} فاتورة`);
           }
           el.querySelectorAll('[data-pop]').forEach(p => p.hidden = true);
           again();
@@ -261,7 +250,7 @@ function bind(el, a, v, again){
       await put('lastPosition','last',{sector:st.sector, blk:st.blk, bld:st.bld});
       st.sel.delete(k);
       await refresh();
-      toast(`تم سداد شقة ${s.apt} (${money(amt)} جنيه)`);
+      toast(`تم سداد شقة ${s.apt}`);
       again();
     };
   });
@@ -275,7 +264,7 @@ function bind(el, a, v, again){
     await put('lastPosition','last',{sector:st.sector, blk:st.blk, bld:st.bld});
     st.sel.clear();
     await refresh();
-    toast(`تم سداد ${v.ch.length} شقة (${money(amt)} جنيه)`);
+    toast(`تم سداد ${v.ch.length} شقة`);
     again();
   };
 }
@@ -284,12 +273,12 @@ export async function renderHome(el){
   const y = scrollY; back(false);
   const w = work();
   if (!st.S.length){
-    el.innerHTML = '<div class="empty">لا توجد بيانات بعد. اضغط «تحديث الملف» من تبويب «ما تم تحصيله».</div>';
+    el.innerHTML = '<div class="empty">لا توجد بيانات بعد. اضغط «تحديث الملف».</div>';
     return;
   }
   const secs = [...new Set(w.map(s => s.sector))].sort(srt);
   if (!secs.length){
-    el.innerHTML = '<div class="empty">لا يوجد عملاء غير مسددين في خط سيرك. ما شاء الله.</div>';
+    el.innerHTML = '<div class="empty">لا يوجد عملاء غير مسددين.</div>';
     return;
   }
   if (!secs.includes(st.sector)) st.sector = secs[0];
@@ -305,18 +294,6 @@ export async function renderHome(el){
   const optBlk = blks.map(x => `<option ${x===st.blk?'selected':''} value="${x}">بلوك ${x}</option>`).join('');
 
   let html = `
-  <div class="search-box">
-    <label class="search" style="display:flex;align-items:center;gap:8px;background:var(--s1);border:1.5px solid var(--line);border-radius:16px;padding:0 12px;height:50px;box-shadow:var(--sh);margin:12px 0">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
-      <input id="q" type="search" placeholder="ابحث باسم العميل..." style="flex:1;border:0;background:none;color:var(--ink);font-size:15px;font-weight:600;height:100%;outline:0;font-family:inherit">
-    </label>
-    <div id="qwrap" class="wrap hidden">
-      <div class="card">
-        <div class="h2" style="display:flex;justify-content:space-between;margin-bottom:.6rem"><span>نتائج البحث</span><span class="mute" id="qn"></span></div>
-        <div class="list" id="qres" style="margin-top:0"></div>
-      </div>
-    </div>
-  </div>
   <div class="pick">
     <label class="field"><span>القطاع</span><select id="secIn" class="num2" style="width:100%;height:44px;font-weight:800;text-align:center">${optSec}</select></label>
     <label class="field"><span>البلوك</span><select id="blkIn" class="num2" style="width:100%;height:44px;font-weight:800;text-align:center">${optBlk}</select></label>
@@ -352,16 +329,10 @@ export async function renderHome(el){
   const blkIn = el.querySelector('#blkIn');
   const bldIn = el.querySelector('#bldIn');
 
-  secIn.addEventListener('change', () => {
-    st.sector = secIn.value;
-    st.open = null;
-    renderHome(el);
-  });
-  blkIn.addEventListener('change', () => {
-    st.blk = blkIn.value;
-    st.open = null;
-    renderHome(el);
-  });
+  secIn.addEventListener('change', () => { st.sector = secIn.value; st.open = null; renderHome(el); });
+  blkIn.addEventListener('change', () => { st.blk = blkIn.value; st.open = null; renderHome(el); });
+  
+  // ✅ الانتقال التلقائي (مع إبقاء لوحة المفاتيح مفتوحة)
   bldIn.addEventListener('input', () => {
     const v = String(bldIn.value || '').replace(/\D/g, '').slice(0, 2);
     if (bldIn.value !== v) bldIn.value = v;
@@ -371,7 +342,16 @@ export async function renderHome(el){
         st.bld = v;
         setTimeout(() => {
           renderHome(el);
-          window.scrollTo({top:0, behavior:'smooth'});
+          // ✅ نقل الصفحة إلى الشقق مباشرة
+          const bv = document.getElementById('buildingView');
+          if (bv) {
+            bv.scrollIntoView({behavior:'smooth', block:'start'});
+          } else {
+            window.scrollTo({top:0, behavior:'smooth'});
+          }
+          // إعادة التركيز على حقل العمارة لإبقاء لوحة المفاتيح مفتوحة
+          const newBld = document.getElementById('bldIn');
+          if (newBld) newBld.focus();
         }, 150);
       } else {
         const inPaid = st.S.some(s => s.sector===st.sector && s.blk===st.blk && s.bld===v && st.paid.has(key(s)));
@@ -405,52 +385,6 @@ export async function renderHome(el){
   if (elKPct) elKPct.textContent = pct + '%';
   const elKBar = document.getElementById('kBar');
   if (elKBar) elKBar.style.width = pct + '%';
-
-  // البحث
-  const qEl = document.getElementById('q');
-  if (qEl && !qEl._bound) {
-    qEl._bound = true;
-    qEl.addEventListener('input', () => {
-      const q = qEl.value.trim();
-      const qwrap = document.getElementById('qwrap');
-      const qres = document.getElementById('qres');
-      const qn = document.getElementById('qn');
-      if (q.length < 2) { qwrap.classList.add('hidden'); return; }
-      qwrap.classList.remove('hidden');
-      const qnz = String(q).normalize('NFKC').replace(/[\u064B-\u065F\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').trim();
-      const toks = qnz.split(' ').filter(Boolean);
-      const matches = st.S.filter(s => toks.every(t => String(s.name||'').includes(t)) && !st.paid.has(key(s)));
-      if(qn) qn.textContent = matches.length ? `${matches.length} نتيجة` : '';
-      if(qres) {
-        if(!matches.length) qres.innerHTML = '<p class="mute">لا يوجد عميل بهذا الاسم</p>';
-        else {
-          qres.innerHTML = matches.slice(0, 30).map((s, i) => {
-            const k = key(s);
-            return `<div class="apt-card" style="margin-bottom:.4rem" data-open="${k}">
-              <div class="apt-name">${esc(s.name || 'بدون اسم')}</div>
-              <div class="apt-meta">شقة ${s.apt} · عمارة ${s.bld} · قطاع ${s.sector}</div>
-              <div class="apt-val">${money(due(s))}</div>
-            </div>`;
-          }).join('');
-          qres.querySelectorAll('[data-open]').forEach(btn => {
-            btn.onclick = () => {
-              const k = btn.dataset.open;
-              const s = st.by.get(k);
-              if (s){
-                st.sector = s.sector;
-                st.blk = s.blk;
-                st.open = s.bld;
-                st.bld = s.bld;
-                st.sel.clear();
-                renderHome(el);
-                setTimeout(() => window.scrollTo({top:0, behavior:'smooth'}), 50);
-              }
-            };
-          });
-        }
-      }
-    });
-  }
 
   scrollTo(0, y);
 }
