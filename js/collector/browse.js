@@ -65,6 +65,7 @@ export function receipt(e){
   w.document.close();
 }
 
+/* ===== بطاقات الشقق ===== */
 function aptsView(a){
   const ch = a.filter(s => st.sel.has(key(s)));
   const ct = tot(ch);
@@ -269,8 +270,83 @@ function bind(el, a, v, again){
   };
 }
 
+/* ===== دالة مساعدة للتمرير إلى أعلى الصفحة ===== */
+function scrollToTop(){
+  window.scrollTo({top: 0, behavior: 'smooth'});
+  const bv = document.getElementById('buildingView');
+  if (bv) bv.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+/* ===== عرض العمارة في #buildingView (أعلى الصفحة) ===== */
+function renderBuildingInView(a){
+  const bv = document.getElementById('buildingView');
+  if (!bv) return;
+  const v = aptsView(a);
+  bv.innerHTML = `<div class="card">${v.html}</div>`;
+  bv.hidden = false;
+  bind(bv, a, v, () => {
+    // إعادة رسم العمارة بعد السداد أو التحديث
+    const a2 = work().filter(s => s.sector===st.sector && s.blk===st.blk && s.bld===st.bld).sort((p,q) => srt(p.apt, q.apt));
+    renderBuildingInView(a2);
+  });
+  scrollToTop();
+}
+
+/* ===== البحث في الصفحة الرئيسية (بدون إعادة رسم) ===== */
+function initSearch(){
+  const qEl = document.getElementById('q');
+  if (!qEl || qEl._bound) return;
+  qEl._bound = true;
+  let timer = null;
+  qEl.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = qEl.value.trim();
+    const qwrap = document.getElementById('qwrap');
+    const qres = document.getElementById('qres');
+    const qn = document.getElementById('qn');
+    if (q.length < 2) { qwrap.classList.add('hidden'); return; }
+    qwrap.classList.remove('hidden');
+    timer = setTimeout(() => {
+      const qnz = String(q).normalize('NFKC').replace(/[\u064B-\u065F\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').trim();
+      const toks = qnz.split(' ').filter(Boolean);
+      const matches = st.S.filter(s => !st.paid.has(key(s)) && toks.every(t => String(s.name||'').includes(t)));
+      if(qn) qn.textContent = matches.length ? `${matches.length} نتيجة` : '';
+      if(qres) {
+        if(!matches.length) qres.innerHTML = '<p class="mute">لا يوجد عميل بهذا الاسم</p>';
+        else {
+          qres.innerHTML = matches.slice(0, 30).map(s => {
+            const k = key(s);
+            return `<div class="apt-card" style="margin-bottom:.4rem" data-open="${k}">
+              <div class="apt-name">${esc(s.name || 'بدون اسم')}</div>
+              <div class="apt-meta">شقة ${s.apt} · عمارة ${s.bld} · قطاع ${s.sector}</div>
+              <div class="apt-val">${money(due(s))}</div>
+            </div>`;
+          }).join('');
+          qres.querySelectorAll('[data-open]').forEach(btn => {
+            btn.onclick = () => {
+              const k = btn.dataset.open;
+              const s = st.by.get(k);
+              if (s){
+                st.sector = s.sector;
+                st.blk = s.blk;
+                st.open = s.bld;
+                st.bld = s.bld;
+                st.sel.clear();
+                qwrap.classList.add('hidden');
+                qEl.value = '';
+                renderHome(document.getElementById('view'));
+                setTimeout(scrollToTop, 100);
+              }
+            };
+          });
+        }
+      }
+    }, 200);
+  });
+}
+
 export async function renderHome(el){
-  const y = scrollY; back(false);
+  back(false);
   const w = work();
   if (!st.S.length){
     el.innerHTML = '<div class="empty">لا توجد بيانات بعد. اضغط «تحديث الملف».</div>';
@@ -289,16 +365,34 @@ export async function renderHome(el){
   rows.forEach(s => (g[s.bld] = g[s.bld] || []).push(s));
   const t = tot(rows);
 
-  let ov = null;
   const optSec = secs.map(x => `<option ${x===st.sector?'selected':''} value="${x}">قطاع ${x}</option>`).join('');
   const optBlk = blks.map(x => `<option ${x===st.blk?'selected':''} value="${x}">بلوك ${x}</option>`).join('');
   const optBld = Object.keys(g).sort(srt).map(x => `<option ${x===st.open?'selected':''} value="${x}">عمارة ${x}</option>`).join('');
 
   let html = `
-  <div class="pick" style="grid-template-columns:1fr 1fr 1fr">
+  <div class="search-box" style="margin-bottom:12px">
+    <label class="search" style="display:flex;align-items:center;gap:8px;background:var(--s1);border:1.5px solid var(--line);border-radius:16px;padding:0 12px;height:50px;box-shadow:var(--sh)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
+      <input id="q" type="search" placeholder="ابحث باسم العميل..." style="flex:1;border:0;background:none;color:var(--ink);font-size:15px;font-weight:600;height:100%;outline:0;font-family:inherit">
+    </label>
+    <div id="qwrap" class="wrap hidden" style="margin-top:8px">
+      <div class="card">
+        <div class="h2" style="display:flex;justify-content:space-between;margin-bottom:.6rem"><span>نتائج البحث</span><span class="mute" id="qn"></span></div>
+        <div class="list" id="qres" style="margin-top:0"></div>
+      </div>
+    </div>
+  </div>
+  <div class="pick" style="grid-template-columns:1fr 1fr">
     <label class="field"><span>القطاع</span><select id="secIn" class="num2" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optSec}</select></label>
     <label class="field"><span>البلوك</span><select id="blkIn" class="num2" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optBlk}</select></label>
-    <label class="field"><span>العمارة</span><input id="bldIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.open||''}" data-next="" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem;border:2px solid var(--line);border-radius:12px"></label>
+  </div>
+  <div class="pick" style="grid-template-columns:1fr;margin-top:-.3rem">
+    <label class="field"><span>العمارة (اختر أو اكتب)</span>
+      <div style="display:flex;gap:.4rem;align-items:center">
+        <select id="bldSel" class="num2" style="flex:1;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optBld}</select>
+        <input id="bldIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.open||''}" placeholder="أو اكتب" style="width:80px;height:48px;font-weight:800;text-align:center;font-size:1.1rem;border:2px solid var(--line);border-radius:12px">
+      </div>
+    </label>
   </div>
   <p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p>
   <div class="blist">`;
@@ -306,74 +400,57 @@ export async function renderHome(el){
   Object.keys(g).sort(srt).forEach(b => {
     const x = tot(g[b]);
     const o = st.open === b;
-    let hiClass = '';
-    if (st.filter){
-      if (st.filter.kind === 'blk' && st.filter.matches.has('blk:' + st.sector + '|' + st.blk)) hiClass = 'hi';
-      if (st.filter.kind === 'bld' && st.filter.matches.has('bld:' + st.sector + '|' + st.blk + '|' + b)) hiClass = 'hi';
-      if (st.filter.kind === 'apt'){
-        const hasMatch = g[b].some(s => st.filter.matches.has('apt:' + key(s)));
-        if (hasMatch) hiClass = 'hi';
-      }
-    }
     const cells = `<b>عمارة ${b}</b><span>${x.n} شقة</span><span>${x.count} فاتورة</span><strong>${money(x.value)}</strong>`;
-    html += `<div class="brow prow ${o?'open':''} ${hiClass}" data-b="${b}" role="button" tabindex="0">${cells}</div>`;
-    if (o){
-      st.bld = b;
-      const aa = g[b].sort((p,q) => srt(p.apt, q.apt));
-      ov = {a: aa, v: aptsView(aa)};
-      html += `<div class="card apts">${ov.v.html}</div>`;
-    }
+    html += `<div class="brow prow ${o?'open':''}" data-b="${b}" role="button" tabindex="0">${cells}</div>`;
   });
-  el.innerHTML = html + '</div>' + (ov ? bar(ov.v) : '');
+  el.innerHTML = html + '</div>';
 
   const secIn = el.querySelector('#secIn');
   const blkIn = el.querySelector('#blkIn');
+  const bldSel = el.querySelector('#bldSel');
   const bldIn = el.querySelector('#bldIn');
 
   secIn.addEventListener('change', () => { st.sector = secIn.value; st.open = null; renderHome(el); });
   blkIn.addEventListener('change', () => { st.blk = blkIn.value; st.open = null; renderHome(el); });
   
-  // الانتقال التلقائي + التمرير
+  const openBld = (v) => {
+    if (g[v]){
+      st.open = v;
+      st.bld = v;
+      const a = g[v].sort((p,q) => srt(p.apt, q.apt));
+      renderBuildingInView(a);
+    } else {
+      const inPaid = st.S.some(s => s.sector===st.sector && s.blk===st.blk && s.bld===v && st.paid.has(key(s)));
+      if (inPaid) toast('العمارة مسددة بالكامل');
+      else toast('لا توجد في السجلات');
+    }
+  };
+
+  bldSel.addEventListener('change', () => {
+    const v = bldSel.value;
+    if (v) { bldIn.value = v; openBld(v); }
+  });
+  
   bldIn.addEventListener('input', () => {
     const v = String(bldIn.value || '').replace(/\D/g, '').slice(0, 2);
     if (bldIn.value !== v) bldIn.value = v;
-    if (v.length === 2){
-      if (g[v]){
-        st.open = v;
-        st.bld = v;
-        setTimeout(() => {
-          renderHome(el);
-          // التمرير إلى الشقق
-          const apts = document.querySelector('.apts');
-          if (apts) {
-            apts.scrollIntoView({behavior:'smooth', block:'start'});
-          } else {
-            window.scrollTo({top:0, behavior:'smooth'});
-          }
-        }, 150);
-      } else {
-        const inPaid = st.S.some(s => s.sector===st.sector && s.blk===st.blk && s.bld===v && st.paid.has(key(s)));
-        if (inPaid) toast('العمارة مسددة بالكامل');
-        else toast('لا توجد في السجلات');
-      }
-    }
+    if (v.length === 2) openBld(v);
   });
 
   el.querySelectorAll('[data-b]').forEach(b => {
     b.onclick = () => {
       st.sel.clear();
-      st.open = st.open === b.dataset.b ? null : b.dataset.b;
-      st.bld = st.open;
-      renderHome(el);
-      if (st.open) {
-        const apts = document.querySelector('.apts');
-        if (apts) apts.scrollIntoView({behavior:'smooth', block:'start'});
-        else window.scrollTo({top:0, behavior:'smooth'});
+      const v = b.dataset.b;
+      if (st.open === v) {
+        st.open = null; st.bld = null;
+        const bv = document.getElementById('buildingView');
+        if (bv) { bv.hidden = true; bv.innerHTML = ''; }
+        renderHome(el);
+      } else {
+        openBld(v);
       }
     };
   });
-
-  if (ov) bind(el, ov.a, ov.v, () => renderHome(el));
 
   // KPIs
   const totalDebt = st.S.reduce((sum, s) => sum + (s.value || 0), 0);
@@ -388,61 +465,13 @@ export async function renderHome(el){
   const elKBar = document.getElementById('kBar');
   if (elKBar) elKBar.style.width = pct + '%';
 
-  // البحث (مُحسّن للأداء)
-  const qEl = document.getElementById('q');
-  if (qEl && !qEl._bound) {
-    qEl._bound = true;
-    let timer = null;
-    qEl.addEventListener('input', () => {
-      clearTimeout(timer);
-      const q = qEl.value.trim();
-      const qwrap = document.getElementById('qwrap');
-      const qres = document.getElementById('qres');
-      const qn = document.getElementById('qn');
-      if (q.length < 2) { qwrap.classList.add('hidden'); return; }
-      qwrap.classList.remove('hidden');
-      timer = setTimeout(() => {
-        const qnz = String(q).normalize('NFKC').replace(/[\u064B-\u065F\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').trim();
-        const toks = qnz.split(' ').filter(Boolean);
-        const matches = st.S.filter(s => toks.every(t => String(s.name||'').includes(t)) && !st.paid.has(key(s)));
-        if(qn) qn.textContent = matches.length ? `${matches.length} نتيجة` : '';
-        if(qres) {
-          if(!matches.length) qres.innerHTML = '<p class="mute">لا يوجد عميل بهذا الاسم</p>';
-          else {
-            qres.innerHTML = matches.slice(0, 30).map(s => {
-              const k = key(s);
-              return `<div class="apt-card" style="margin-bottom:.4rem" data-open="${k}">
-                <div class="apt-name">${esc(s.name || 'بدون اسم')}</div>
-                <div class="apt-meta">شقة ${s.apt} · عمارة ${s.bld} · قطاع ${s.sector}</div>
-                <div class="apt-val">${money(due(s))}</div>
-              </div>`;
-            }).join('');
-            qres.querySelectorAll('[data-open]').forEach(btn => {
-              btn.onclick = () => {
-                const k = btn.dataset.open;
-                const s = st.by.get(k);
-                if (s){
-                  st.sector = s.sector;
-                  st.blk = s.blk;
-                  st.open = s.bld;
-                  st.bld = s.bld;
-                  st.sel.clear();
-                  renderHome(el);
-                  // فتح العمارة والتمرير إلى الشقق
-                  setTimeout(() => {
-                    const apts = document.querySelector('.apts');
-                    if (apts) apts.scrollIntoView({behavior:'smooth', block:'start'});
-                  }, 100);
-                }
-              };
-            });
-          }
-        }
-      }, 300);
-    });
-  }
+  initSearch();
 
-  scrollTo(0, y);
+  // افتح العمارة الأخيرة تلقائياً عند التحميل الأول
+  if (st.open && g[st.open]){
+    const a = g[st.open].sort((p,q) => srt(p.apt, q.apt));
+    renderBuildingInView(a);
+  }
 }
 
 export function renderBuilding(el){
