@@ -65,6 +65,7 @@ export function receipt(e){
   w.document.close();
 }
 
+/* ===== تصميم بطاقة الشقة الجديد ===== */
 function aptsView(a){
   const ch = a.filter(s => st.sel.has(key(s)));
   const ct = tot(ch);
@@ -82,8 +83,10 @@ function aptsView(a){
       else if (st.filter.kind === 'bld' && st.filter.matches.has('bld:' + s.sector + '|' + s.blk + '|' + s.bld)) hiClass = 'hi-bld';
     }
     return `<div class="apt-card ${selected?'on':''} ${hiClass}" data-card="${k}">
-      <label class="apt-chk"><input type="checkbox" data-k="${k}" ${selected?'checked':''}></label>
-      <div class="apt-apt">${s.apt}</div>
+      <label class="apt-chk" style="cursor:pointer">
+        <input type="checkbox" data-k="${k}" ${selected?'checked':''}>
+      </label>
+      <div class="apt-apt" style="cursor:pointer">${s.apt}</div>
       <div class="apt-body">
         <div class="apt-name" data-nm="${k}">${nameHtml}</div>
         <div class="apt-meta">${s.count} فاتورة${advHtml}</div>
@@ -183,10 +186,21 @@ function partialDialog(s){
   });
 }
 
+/* تعديل ربط الأحداث ليشمل الضغط على الشقة والـ checkbox معاً */
 function bind(el, a, v, again){
-  el.querySelectorAll('[data-k]').forEach(c => {
-    c.onchange = () => { c.checked ? st.sel.add(c.dataset.k) : st.sel.delete(c.dataset.k); again(); };
+  // الضغط على checkbox أو رقم الشقة لتحديد الشقة
+  el.querySelectorAll('.apt-chk, .apt-apt').forEach(c => {
+    c.onclick = (ev) => {
+      ev.stopPropagation();
+      const card = c.closest('.apt-card');
+      const k = card.dataset.card;
+      const cb = card.querySelector('input[type=checkbox]');
+      cb.checked = !cb.checked;
+      if (cb.checked) st.sel.add(k); else st.sel.delete(k);
+      again();
+    };
   });
+
   const allCb = el.querySelector('#all');
   if (allCb) allCb.onchange = e => {
     a.forEach(s => e.target.checked ? st.sel.add(key(s)) : st.sel.delete(key(s)));
