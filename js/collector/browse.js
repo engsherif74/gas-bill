@@ -118,12 +118,12 @@ const bar = v => {
   const inv = v.ch.reduce((t,s) => t + (s.count||0), 0);
   const has = cnt > 0;
   return `<div class="bar">
-    <div class="bar-row">
-      ${has
-        ? `<span><b>${cnt}</b> شقة · <b>${inv}</b> فاتورة</span>`
-        : `<span class="mute">لم تحدد شيئاً</span>`}
+    <div class="bar-grid">
+      <div><small>إجمالي العمارة</small><b>${money(v.allTot.value)}</b></div>
+      <div class="sel"><small>المحدد (${cnt} شقة · ${inv} فاتورة)</small><b>${has ? money(v.ct.value) : '—'}</b></div>
+      <div class="rem"><small>المتبقي بعد السداد</small><b>${money(v.allTot.value - v.ct.value)}</b></div>
       <button class="btn" id="pay" ${has?'':'disabled'} type="button">
-        ${has ? `سداد (${money(v.ct.value)} ج)` : 'سداد'}
+        ${has ? `سداد (${money(v.ct.value)})` : 'سداد'}
       </button>
     </div>
   </div>`;
@@ -301,7 +301,6 @@ export async function renderHome(el){
   const t = tot(rows);
 
   let ov = null;
-  // تحويل القطاع والبلوك إلى قوائم منسدلة
   const optSec = secs.map(x => `<option ${x===st.sector?'selected':''} value="${x}">قطاع ${x}</option>`).join('');
   const optBlk = blks.map(x => `<option ${x===st.blk?'selected':''} value="${x}">بلوك ${x}</option>`).join('');
 
@@ -309,7 +308,7 @@ export async function renderHome(el){
   <div class="search-box">
     <label class="search" style="display:flex;align-items:center;gap:8px;background:var(--s1);border:1.5px solid var(--line);border-radius:16px;padding:0 12px;height:50px;box-shadow:var(--sh);margin:12px 0">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
-      <input id="q" type="search" placeholder="ابحث باسم العميل..." style="flex:1;border:0;background:none;color:var(--tx);font-size:15px;font-weight:600;height:100%;outline:0;font-family:inherit">
+      <input id="q" type="search" placeholder="ابحث باسم العميل..." style="flex:1;border:0;background:none;color:var(--ink);font-size:15px;font-weight:600;height:100%;outline:0;font-family:inherit">
     </label>
     <div id="qwrap" class="wrap hidden">
       <div class="card">
@@ -321,8 +320,7 @@ export async function renderHome(el){
   <div class="pick">
     <label class="field"><span>القطاع</span><select id="secIn" class="num2" style="width:100%;height:44px;font-weight:800;text-align:center">${optSec}</select></label>
     <label class="field"><span>البلوك</span><select id="blkIn" class="num2" style="width:100%;height:44px;font-weight:800;text-align:center">${optBlk}</select></label>
-    <label class="field"><span>العمارة</span><input id="bldIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.open||''}" data-next="aptIn"></label>
-    <label class="field"><span>الشقة</span><input id="aptIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="" data-next=""></label>
+    <label class="field"><span>العمارة</span><input id="bldIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.open||''}" data-next=""></label>
   </div>
   <p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p>
   <div class="blist">`;
@@ -353,22 +351,6 @@ export async function renderHome(el){
   const secIn = el.querySelector('#secIn');
   const blkIn = el.querySelector('#blkIn');
   const bldIn = el.querySelector('#bldIn');
-  const aptIn = el.querySelector('#aptIn');
-
-  function autoNext(inp){
-    inp.addEventListener('input', () => {
-      const v = String(inp.value || '').replace(/\D/g, '').slice(0, 2);
-      if (inp.value !== v) inp.value = v;
-      if (v.length === 2){
-        const next = inp.dataset.next;
-        if (next){
-          const n = el.querySelector('#' + next);
-          if (n){ n.focus(); n.select?.(); }
-        }
-      }
-    });
-  }
-  autoNext(bldIn); autoNext(aptIn);
 
   secIn.addEventListener('change', () => {
     st.sector = secIn.value;
@@ -381,8 +363,9 @@ export async function renderHome(el){
     renderHome(el);
   });
   bldIn.addEventListener('input', () => {
-    if (bldIn.value.length === 2){
-      const v = bldIn.value;
+    const v = String(bldIn.value || '').replace(/\D/g, '').slice(0, 2);
+    if (bldIn.value !== v) bldIn.value = v;
+    if (v.length === 2){
       if (g[v]){
         st.open = v;
         st.bld = v;
@@ -394,25 +377,6 @@ export async function renderHome(el){
         const inPaid = st.S.some(s => s.sector===st.sector && s.blk===st.blk && s.bld===v && st.paid.has(key(s)));
         if (inPaid) toast('العمارة مسددة بالكامل');
         else toast('لا توجد في السجلات');
-      }
-    }
-  });
-  aptIn.addEventListener('input', () => {
-    if (aptIn.value.length === 2 && st.open){
-      const apt = aptIn.value;
-      const k = [null, st.sector, st.blk, st.open, apt].join('|');
-      const found = st.by.get(k);
-      if (found){
-        st.sel.add(k);
-        const card = el.querySelector(`[data-card="${k}"]`);
-        if (card){
-          card.scrollIntoView({behavior:'smooth', block:'center'});
-          card.classList.add('pulse');
-          setTimeout(() => card.classList.remove('pulse'), 1500);
-        }
-        renderHome(el);
-      } else {
-        toast('الشقة غير موجودة');
       }
     }
   });
@@ -468,7 +432,6 @@ export async function renderHome(el){
               <div class="apt-val">${money(due(s))}</div>
             </div>`;
           }).join('');
-          // عند الضغط على نتيجة البحث، نفتح العمارة فقط
           qres.querySelectorAll('[data-open]').forEach(btn => {
             btn.onclick = () => {
               const k = btn.dataset.open;
@@ -521,6 +484,7 @@ export async function renderLedger(el, reload, exp){
     (e.map(x => {
       const s = st.by.get(x.key) || {};
       const tags = tagFor(x);
+      const canU = canUndo(x);
       return `<div class="led-row">
         <div class="led-main">
           <span class="led-apt">${s.apt || '?'}</span>
@@ -535,7 +499,7 @@ export async function renderLedger(el, reload, exp){
           <div class="led-menu-wrap">
             <button class="menu-dots" data-m="${x.id}" type="button" aria-label="خيارات">⋮</button>
             <div class="menu-pop" data-pop="${x.id}" hidden>
-              ${canUndo(x)?`<button data-act="undo" data-id="${x.id}" type="button">تراجع</button>`:''}
+              ${canU?`<button data-act="undo" data-id="${x.id}" type="button">تراجع</button>`:''}
               <button data-act="print" data-id="${x.id}" type="button">طباعة فاتورة</button>
               ${(s.value||0) === 0 ? `<button data-act="advance" data-id="${x.id}" type="button">سداد مقدم</button>` : ''}
             </div>
