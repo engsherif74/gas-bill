@@ -91,7 +91,7 @@ function aptsView(a){
       </div>
       <div class="apt-bottom">
         <label class="apt-chk"><input type="checkbox" data-k="${k}" ${selected?'checked':''}></label>
-        <div class="apt-apt" style="background:var(--br);color:#fff;border-radius:6px;padding:.1rem .4rem;font-weight:800;font-size:.85rem">${s.apt}</div>
+        <div class="apt-apt">${s.apt}</div>
         <div class="apt-meta">${s.count} فاتورة${advHtml}</div>
         <div class="apt-menu-wrap">
           <button class="apt-dots" data-m="${k}" type="button" aria-label="خيارات">⋮</button>
@@ -134,8 +134,6 @@ function partialDialog(s){
     const d = document.createElement('dialog');
     d.className = 'partial-dialog';
     const maxCount = s.count || 1;
-    const unitValue = maxCount > 0 ? Math.round((s.value / maxCount) * 100) / 100 : 0;
-    // لا نستخدم monthOptions هنا لتجنب القيم الافتراضية
     d.innerHTML = `
       <h3>سداد جزئي — شقة ${s.apt}</h3>
       <p class="mute">المديونية الحالية: ${s.count} فاتورة بقيمة ${money(s.value)} جنيه</p>
@@ -164,19 +162,16 @@ function partialDialog(s){
 }
 
 function bind(el, a, v, again){
-  // checkbox
   el.querySelectorAll('[data-k]').forEach(c => {
     c.onchange = () => { c.checked ? st.sel.add(c.dataset.k) : st.sel.delete(c.dataset.k); again(); };
   });
 
-  // تحديد الكل
   const allCb = el.querySelector('#all');
   if (allCb) allCb.onchange = e => {
     a.forEach(s => e.target.checked ? st.sel.add(key(s)) : st.sel.delete(key(s)));
     again();
   };
 
-  // الضغط على الاسم
   el.querySelectorAll('[data-nm]').forEach(nm => {
     nm.onclick = ev => {
       ev.stopPropagation();
@@ -186,7 +181,6 @@ function bind(el, a, v, again){
     };
   });
 
-  // menu
   el.querySelectorAll('[data-m]').forEach(btn => {
     btn.onclick = ev => {
       ev.stopPropagation();
@@ -197,7 +191,6 @@ function bind(el, a, v, again){
   });
   document.addEventListener('click', () => { el.querySelectorAll('[data-pop]').forEach(p => p.hidden = true); });
 
-  // actions
   el.querySelectorAll('[data-act]').forEach(b => {
     b.onclick = async ev => {
       ev.stopPropagation();
@@ -233,7 +226,6 @@ function bind(el, a, v, again){
     };
   });
 
-  // السداد الفردي
   el.querySelectorAll('[data-p]').forEach(btn => {
     btn.onclick = async ev => {
       ev.stopPropagation();
@@ -249,7 +241,6 @@ function bind(el, a, v, again){
     };
   });
 
-  // السداد الجماعي
   const p = el.querySelector('#pay');
   if (p) p.onclick = async () => {
     if (!v.ch.length) return;
