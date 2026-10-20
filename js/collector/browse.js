@@ -65,12 +65,12 @@ export function receipt(e){
   w.document.close();
 }
 
-/* ===== تصميم بطاقة الشقة (مع checkbox يظهر عند التحديد فقط) ===== */
+/* ===== تصميم بطاقة الشقة الجديد ===== */
 function aptsView(a){
   const ch = a.filter(s => st.sel.has(key(s)));
   const ct = tot(ch);
   const allTot = tot(a);
-  const showCB = st.showCheckboxes; // متغير التحكم في ظهور الـ checkbox
+  const showCB = st.showCheckboxes;
 
   const cards = a.map(s => {
     const k = key(s);
@@ -85,33 +85,32 @@ function aptsView(a){
       else if (st.filter.kind === 'bld' && st.filter.matches.has('bld:' + s.sector + '|' + s.blk + '|' + s.bld)) hiClass = 'hi-bld';
     }
 
-    // زر القيمة (يظهر كـ قيمة فقط، مع خلفية بيضاء)
-    const valBtn = `<button class="apt-val" data-p="${k}" type="button">${money(due(s))}</button>`;
-
-    // checkbox يظهر فقط إذا كان showCB مفعلاً
+    // checkbox يظهر فقط عند showCB
     const cbHtml = showCB ? `<label class="apt-chk"><input type="checkbox" data-k="${k}" ${selected?'checked':''}></label>` : '';
 
+    // تخطيط البطاقة: الاسم في سطر، ثم الرقم والقيمة في سطر
     return `<div class="apt-card ${selected?'on':''} ${hiClass}" data-card="${k}">
-      ${cbHtml}
-      <div class="apt-apt">${s.apt}</div>
-      <div class="apt-body">
+      <div class="apt-top">
+        ${cbHtml}
         <div class="apt-name" data-nm="${k}">${nameHtml}</div>
-        <div class="apt-meta">${s.count} فاتورة${advHtml}</div>
+        <div class="apt-apt" style="margin-inline-start:auto;background:var(--br);color:#fff;border-radius:6px;padding:.1rem .4rem;font-weight:800;font-size:.85rem">${s.apt}</div>
       </div>
-      ${valBtn}
-      <div class="apt-menu-wrap">
-        <button class="apt-dots" data-m="${k}" type="button" aria-label="خيارات">⋮</button>
-        <div class="apt-pop" data-pop="${k}" hidden>
-          <button data-act="read" data-id="${k}" type="button">قراءة عداد</button>
-          ${partial ? `<button data-act="partial" data-id="${k}" type="button">سداد جزئي</button>` : ''}
-          <div class="apt-pop-info">الفواتير: ${s.count} · القيمة: ${money(s.value)}</div>
-          ${!s.name ? `<button data-act="name" data-id="${k}" type="button">تعديل الاسم</button>` : ''}
+      <div class="apt-bottom">
+        <div class="apt-meta">${s.count} فاتورة${advHtml}</div>
+        <button class="apt-val" data-p="${k}" type="button" style="background:var(--ac);color:#fff;border:0;border-radius:6px;padding:.2rem .5rem;font-weight:800;font-size:.85rem">${money(due(s))}</button>
+        <div class="apt-menu-wrap">
+          <button class="apt-dots" data-m="${k}" type="button" aria-label="خيارات" style="background:none;border:0;font-size:1rem;color:var(--mu)">⋮</button>
+          <div class="apt-pop" data-pop="${k}" hidden>
+            <button data-act="read" data-id="${k}" type="button">قراءة عداد</button>
+            ${partial ? `<button data-act="partial" data-id="${k}" type="button">سداد جزئي</button>` : ''}
+            <div class="apt-pop-info">الفواتير: ${s.count} · القيمة: ${money(s.value)}</div>
+            ${!s.name ? `<button data-act="name" data-id="${k}" type="button">تعديل الاسم</button>` : ''}
+          </div>
         </div>
       </div>
     </div>`;
   }).join('');
 
-  // زر تحديد الكل (يظهر فقط إذا كان showCB مفعلاً)
   const allCB = showCB ? `<label class="chk" style="display:flex;gap:.4rem;align-items:center;font-weight:700"><input type="checkbox" id="all" ${ch.length===a.length&&a.length?'checked':''}> تحديد الكل</label>` : '';
   const toggleCB = `<button class="lnk" id="toggleCb" type="button" style="font-size:.85rem">${showCB ? 'إخفاء التحديد' : 'تحديد الشقق'}</button>`;
 
@@ -328,10 +327,19 @@ export async function renderHome(el){
   const t = tot(rows);
 
   let ov = null;
-  // البحث أعلى المربعات
+  // البحث في الأعلى
   let html = `
   <div class="search-box">
-    <label class="search"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg><input id="q" type="search" placeholder="ابحث باسم العميل..."></label>
+    <label class="search" style="display:flex;align-items:center;gap:8px;background:var(--s1);border:1.5px solid var(--line);border-radius:16px;padding:0 12px;height:50px;box-shadow:var(--sh);margin:12px 0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
+      <input id="q" type="search" placeholder="ابحث باسم العميل..." style="flex:1;border:0;background:none;color:var(--tx);font-size:15px;font-weight:600;height:100%;outline:0;font-family:inherit">
+    </label>
+    <div id="qwrap" class="wrap hidden">
+      <div class="card">
+        <div class="h2" style="display:flex;justify-content:space-between;margin-bottom:.6rem"><span>نتائج البحث</span><span class="mute" id="qn"></span></div>
+        <div class="list" id="qres" style="margin-top:0"></div>
+      </div>
+    </div>
   </div>
   <div class="pick">
     <label class="field"><span>القطاع</span><input id="secIn" class="num2" type="text" inputmode="numeric" maxlength="2" value="${st.sector||''}" data-next="blkIn"></label>
@@ -405,7 +413,11 @@ export async function renderHome(el){
       if (g[v]){
         st.open = v;
         st.bld = v;
-        setTimeout(() => renderHome(el), 150);
+        setTimeout(() => {
+          renderHome(el);
+          // scroll to top after opening
+          window.scrollTo({top:0, behavior:'smooth'});
+        }, 150);
       } else {
         const inPaid = st.S.some(s => s.sector===st.sector && s.blk===st.blk && s.bld===v && st.paid.has(key(s)));
         if (inPaid) toast('العمارة مسددة بالكامل');
@@ -439,6 +451,8 @@ export async function renderHome(el){
       st.open = st.open === b.dataset.b ? null : b.dataset.b;
       st.bld = st.open;
       renderHome(el);
+      // scroll to top when opening
+      if (st.open) window.scrollTo({top:0, behavior:'smooth'});
     };
   });
 
@@ -457,28 +471,15 @@ export async function renderHome(el){
   const elKBar = document.getElementById('kBar');
   if (elKBar) elKBar.style.width = pct + '%';
 
-  // البحث السريع
+  // البحث
   const qEl = document.getElementById('q');
   if (qEl && !qEl._bound) {
     qEl._bound = true;
     qEl.addEventListener('input', () => {
       const q = qEl.value.trim();
-      let qwrap = document.getElementById('qwrap');
-      let qres = document.getElementById('qres');
-      let qn = document.getElementById('qn');
-      
-      if (!qwrap) {
-        // إنشاء عنصر البحث إذا لم يكن موجوداً
-        const div = document.createElement('div');
-        div.id = 'qwrap';
-        div.className = 'wrap hidden';
-        div.innerHTML = `<div class="card"><div class="h2" style="display:flex;justify-content:space-between;margin-bottom:.6rem"><span>نتائج البحث</span><span class="mute" id="qn"></span></div><div class="list" id="qres" style="margin-top:0"></div></div>`;
-        el.querySelector('.search-box').appendChild(div);
-        qwrap = document.getElementById('qwrap');
-        qres = document.getElementById('qres');
-        qn = document.getElementById('qn');
-      }
-      
+      const qwrap = document.getElementById('qwrap');
+      const qres = document.getElementById('qres');
+      const qn = document.getElementById('qn');
       if (q.length < 2) { qwrap.classList.add('hidden'); return; }
       qwrap.classList.remove('hidden');
       const qnz = String(q).normalize('NFKC').replace(/[\u064B-\u065F\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').trim();
