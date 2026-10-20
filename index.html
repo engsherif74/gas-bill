@@ -16,7 +16,6 @@
 </head>
 <body>
 
-<!-- الهيدر -->
 <header class="top">
   <div class="hrow">
     <button id="menuBtn" class="chipb sq" aria-label="القائمة" hidden>⋮</button>
@@ -30,10 +29,8 @@
   </div>
 </header>
 
-<!-- القائمة المنسدلة -->
 <div id="menu" class="menu" hidden></div>
 
-<!-- شاشة القفل -->
 <main id="locked">
   <section class="card empty">
     <h2>🔒 التطبيق مقفل</h2>
@@ -46,7 +43,6 @@
   </section>
 </main>
 
-<!-- شاشة التشخيص -->
 <main id="diag">
   <section class="card">
     <h2>⚠️ تعذر التحميل</h2>
@@ -59,35 +55,24 @@
   </section>
 </main>
 
-<!-- شريط التحديث (كارت ملف جديد) -->
-<div id="upd" class="upd" hidden>
-  <span>📦 ملف جديد متاح</span>
-  <button class="btn sm" id="updBtn">حمّله</button>
-</div>
-
-<!-- التطبيق الرئيسي -->
 <main id="app" hidden>
   <section id="view"></section>
 </main>
 
-<!-- شريط التنقل السفلي -->
 <nav class="tabs" id="tabs" hidden>
   <button data-t="home" class="on"><span class="ico-emoji">📋</span>التحصيل</button>
   <button data-t="ledger"><span class="ico-emoji">✅</span>ما تم تحصيله</button>
   <button data-t="search"><span class="ico-emoji">🔍</span>بحث</button>
 </nav>
 
-<!-- التذييل -->
 <footer class="app-footer" id="footer" hidden>
   <span>تطوير: <b>شريف نشأت</b></span>
   <span> · </span>
   <span>الإصدار: <b>2.0.0</b></span>
 </footer>
 
-<!-- الإشعارات -->
 <div id="toast" role="status" aria-live="polite"></div>
 
-<!-- سكربت التشخيص المبكر -->
 <script>
 (function(){
   var diagEl = document.getElementById('diag');
