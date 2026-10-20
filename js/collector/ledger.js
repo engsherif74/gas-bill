@@ -51,6 +51,37 @@ export async function partialPay(no, s, {count, amount}, adv) {
   return {newCount, newValue};
 }
 
+/* ============================================================
+   السداد الشخصي: سداد كامل المديونية
+   ============================================================ */
+export async function personalSettle(no, s, adv) {
+  const k = keyOf(s);
+  const b = adv.get(k) || 0;
+  const amt = s.value || 0;
+  const useAdv = Math.min(b, amt);
+  const id = uid(no);
+  const time = new Date().toISOString();
+
+  await put('ledger', id, {
+    id, no, type: 'pay', key: k,
+    amount: amt - useAdv,
+    due: amt,
+    fromAdvance: useAdv,
+    out: !s.inRoute,
+    count: s.count || 0,
+    time, status: 'temp',
+    personal: true
+  });
+
+  if (useAdv) {
+    await put('advance', k, {key: k, balance: b - useAdv});
+  }
+
+  await put('subscribers', k, {...s, value: 0, count: 0});
+
+  return {amount: amt};
+}
+
 export async function addAdvance(no, s, amt) {
   const k = keyOf(s), id = uid(no), b = (await get('advance', k))?.balance || 0;
   await put('ledger', id, {
