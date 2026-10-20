@@ -633,3 +633,64 @@ tr:nth-child(even) td { background: color-mix(in srgb, var(--s1) 50%, transparen
   max-width: 640px;
   margin: 0 auto;
 }
+
+/* تنسيقات بطاقة الشقة */
+.apt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  background: var(--s1);
+  border: 1px solid var(--line);
+  border-inline-start: 4px solid var(--br);
+  border-radius: 12px;
+  padding: 0.5rem 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+.apt-card.on { background: color-mix(in srgb, var(--br) 14%, var(--s1)); }
+.apt-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.apt-name {
+  flex: 1;
+  font-weight: 800;
+  font-size: 0.98rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.apt-val {
+  border: 0;
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #fff;
+  background: var(--ac);
+  min-width: 55px;
+  text-align: center;
+}
+.apt-bottom {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--mu);
+}
+.apt-chk { flex-shrink: 0; }
+.apt-chk input { width: 18px; height: 18px; accent-color: var(--br); }
+.apt-apt {
+  background: var(--br);
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.1rem 0.4rem;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+.apt-meta { flex: 1; }
+.apt-adv { color: var(--ac); font-weight: 700; }
+
