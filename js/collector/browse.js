@@ -13,7 +13,7 @@ export const st = {
   S: [], by: new Map(), paid: new Set(), adv: new Map(), sel: new Set(),
   sector: '', blk: '', bld: null, apt: null, open: null,
   pager: true, all: false, cycle: '', who: '', no: '0',
-  filter: null, filterSel: new Set(), showCheckboxes: false
+  filter: null, filterSel: new Set()
 };
 
 const srt = (a,b) => Number(a)-Number(b);
@@ -65,12 +65,11 @@ export function receipt(e){
   w.document.close();
 }
 
-/* ===== تصميم بطاقة الشقة الجديد ===== */
+/* ===== تصميم بطاقة الشقة (السطر الأول: الاسم + القيمة، السطر الثاني: الشقة + خيارات) ===== */
 function aptsView(a){
   const ch = a.filter(s => st.sel.has(key(s)));
   const ct = tot(ch);
   const allTot = tot(a);
-  const showCB = st.showCheckboxes;
 
   const cards = a.map(s => {
     const k = key(s);
@@ -85,25 +84,20 @@ function aptsView(a){
       else if (st.filter.kind === 'bld' && st.filter.matches.has('bld:' + s.sector + '|' + s.blk + '|' + s.bld)) hiClass = 'hi-bld';
     }
 
-    // checkbox يظهر فقط عند showCB
-    const cbHtml = showCB ? `<label class="apt-chk"><input type="checkbox" data-k="${k}" ${selected?'checked':''}></label>` : '';
-
-    // تخطيط البطاقة: الاسم في سطر، ثم الرقم والقيمة في سطر
     return `<div class="apt-card ${selected?'on':''} ${hiClass}" data-card="${k}">
       <div class="apt-top">
-        ${cbHtml}
         <div class="apt-name" data-nm="${k}">${nameHtml}</div>
-        <div class="apt-apt" style="margin-inline-start:auto;background:var(--br);color:#fff;border-radius:6px;padding:.1rem .4rem;font-weight:800;font-size:.85rem">${s.apt}</div>
+        <button class="apt-val" data-p="${k}" type="button">${money(due(s))}</button>
       </div>
       <div class="apt-bottom">
+        <label class="apt-chk"><input type="checkbox" data-k="${k}" ${selected?'checked':''}></label>
+        <div class="apt-apt" style="background:var(--br);color:#fff;border-radius:6px;padding:.1rem .4rem;font-weight:800;font-size:.85rem">${s.apt}</div>
         <div class="apt-meta">${s.count} فاتورة${advHtml}</div>
-        <button class="apt-val" data-p="${k}" type="button" style="background:var(--ac);color:#fff;border:0;border-radius:6px;padding:.2rem .5rem;font-weight:800;font-size:.85rem">${money(due(s))}</button>
         <div class="apt-menu-wrap">
-          <button class="apt-dots" data-m="${k}" type="button" aria-label="خيارات" style="background:none;border:0;font-size:1rem;color:var(--mu)">⋮</button>
+          <button class="apt-dots" data-m="${k}" type="button" aria-label="خيارات">⋮</button>
           <div class="apt-pop" data-pop="${k}" hidden>
             <button data-act="read" data-id="${k}" type="button">قراءة عداد</button>
             ${partial ? `<button data-act="partial" data-id="${k}" type="button">سداد جزئي</button>` : ''}
-            <div class="apt-pop-info">الفواتير: ${s.count} · القيمة: ${money(s.value)}</div>
             ${!s.name ? `<button data-act="name" data-id="${k}" type="button">تعديل الاسم</button>` : ''}
           </div>
         </div>
@@ -111,14 +105,9 @@ function aptsView(a){
     </div>`;
   }).join('');
 
-  const allCB = showCB ? `<label class="chk" style="display:flex;gap:.4rem;align-items:center;font-weight:700"><input type="checkbox" id="all" ${ch.length===a.length&&a.length?'checked':''}> تحديد الكل</label>` : '';
-  const toggleCB = `<button class="lnk" id="toggleCb" type="button" style="font-size:.85rem">${showCB ? 'إخفاء التحديد' : 'تحديد الشقق'}</button>`;
-
   const html = `<div class="bh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
     <h2 style="margin:0;font-size:1rem">عمارة ${st.bld} <span style="color:var(--br);font-weight:700">— ${money(allTot.value)} ج</span></h2>
-    ${toggleCB}
   </div>
-  ${allCB ? `<div style="margin-bottom:.4rem">${allCB}</div>` : ''}
   <div class="apt-list">${cards}</div>`;
   return {html, ch, ct, allTot};
 }
@@ -199,26 +188,19 @@ function partialDialog(s){
 }
 
 function bind(el, a, v, again){
-  // toggle checkboxes
-  const toggleCb = el.querySelector('#toggleCb');
-  if (toggleCb) toggleCb.onclick = () => {
-    st.showCheckboxes = !st.showCheckboxes;
-    again();
-  };
-
-  // checkbox
+  // الـ checkbox يعمل
   el.querySelectorAll('[data-k]').forEach(c => {
     c.onchange = () => { c.checked ? st.sel.add(c.dataset.k) : st.sel.delete(c.dataset.k); again(); };
   });
 
-  // تحديد الكل
+  // تحديد الكل (يظهر في بعض الحالات)
   const allCb = el.querySelector('#all');
   if (allCb) allCb.onchange = e => {
     a.forEach(s => e.target.checked ? st.sel.add(key(s)) : st.sel.delete(key(s)));
     again();
   };
 
-  // الضغط على الاسم
+  // الضغط على الاسم (للتحديد أو إلغاء التحديد)
   el.querySelectorAll('[data-nm]').forEach(nm => {
     nm.onclick = ev => {
       ev.stopPropagation();
@@ -327,7 +309,6 @@ export async function renderHome(el){
   const t = tot(rows);
 
   let ov = null;
-  // البحث في الأعلى
   let html = `
   <div class="search-box">
     <label class="search" style="display:flex;align-items:center;gap:8px;background:var(--s1);border:1.5px solid var(--line);border-radius:16px;padding:0 12px;height:50px;box-shadow:var(--sh);margin:12px 0">
@@ -415,7 +396,6 @@ export async function renderHome(el){
         st.bld = v;
         setTimeout(() => {
           renderHome(el);
-          // scroll to top after opening
           window.scrollTo({top:0, behavior:'smooth'});
         }, 150);
       } else {
@@ -451,7 +431,6 @@ export async function renderHome(el){
       st.open = st.open === b.dataset.b ? null : b.dataset.b;
       st.bld = st.open;
       renderHome(el);
-      // scroll to top when opening
       if (st.open) window.scrollTo({top:0, behavior:'smooth'});
     };
   });
@@ -491,29 +470,25 @@ export async function renderHome(el){
         else {
           qres.innerHTML = matches.slice(0, 30).map((s, i) => {
             const k = key(s);
-            return `<div class="apt-card" style="margin-bottom:.4rem">
-              <label class="apt-chk"></label>
-              <div class="apt-apt">${s.apt}</div>
-              <div class="apt-body">
-                <div class="apt-name">${esc(s.name || 'بدون اسم')}</div>
-                <div class="apt-meta">قطاع ${s.sector} · بلوك ${s.blk} · عمارة ${s.bld}</div>
-              </div>
-              <button class="apt-val" data-p="${k}" type="button">${money(due(s))}</button>
-              <div class="apt-menu-wrap"></div>
+            return `<div class="apt-card" style="margin-bottom:.4rem" data-open="${k}">
+              <div class="apt-name">${esc(s.name || 'بدون اسم')}</div>
+              <div class="apt-meta">شقة ${s.apt} · عمارة ${s.bld} · قطاع ${s.sector}</div>
+              <div class="apt-val">${money(due(s))}</div>
             </div>`;
           }).join('');
-          qres.querySelectorAll('[data-p]').forEach(btn => {
-            btn.onclick = async ev => {
-              ev.stopPropagation();
-              const k = btn.dataset.p, s = st.by.get(k), amt = due(s);
-              if (!amt){ toast('لا يوجد مبلغ مستحق'); return; }
-              if (!confirm(`تأكيد سداد شقة ${s.apt} — ${s.name||'بدون اسم'} بمبلغ ${money(amt)} جنيه؟`)) return;
-              await pay(st.no, [s], st.adv);
-              await put('lastPosition','last',{sector:st.sector, blk:st.blk, bld:st.bld});
-              st.sel.delete(k);
-              await refresh();
-              toast(`تم سداد شقة ${s.apt} (${money(amt)} جنيه)`);
-              renderHome(el);
+          // عند الضغط على نتيجة البحث، نفتح العمارة
+          qres.querySelectorAll('[data-open]').forEach(btn => {
+            btn.onclick = () => {
+              const k = btn.dataset.open;
+              const s = st.by.get(k);
+              if (s){
+                st.sector = s.sector;
+                st.blk = s.blk;
+                st.open = s.bld;
+                st.sel.clear();
+                renderHome(el);
+                window.scrollTo({top:0, behavior:'smooth'});
+              }
             };
           });
         }
