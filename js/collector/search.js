@@ -1,12 +1,12 @@
-import {st, esc, refresh, toast} from './browse.js';
-import {keyOf as key, pay, ldate} from './ledger.js';
+import {st, esc, toast} from './browse.js';
+import {keyOf as key, pay, partialPay, list} from './ledger.js';
 import {money} from '../core/utils.js';
 import {openPage} from './buttons.js';
-import {all, put} from '../core/db.js';
-import {list} from './ledger.js';
-import {totals} from './payment.js';
+import {saveManual} from './names.js';
+import {all, get} from '../core/db.js';
 
 let q = '', scope = 'all', mode = 'name';
+let stLocal = { S: [], adv: new Map(), paid: new Set(), by: new Map() };
 
 const fz = s => String(s || '').normalize('NFKC')
   .replace(/[\u064B-\u065F\u0640]/g, '')
@@ -14,11 +14,27 @@ const fz = s => String(s || '').normalize('NFKC')
   .replace(/[خج]/g, 'ح').replace(/ذ/g, 'د')
   .replace(/\s+/g, ' ').trim();
 
-const due = s => Math.max(0, s.value - (st.adv.get(key(s)) || 0));
+const due = s => Math.max(0, (s.value || 0) - (stLocal.adv.get(key(s)) || 0));
+
+// تحميل البيانات مرة واحدة فقط عند فتح الصفحة
+async function loadData(){
+  const subs = await all('subscribers');
+  const advs = await all('advance');
+  const ledger = await list();
+  const fullPaid = new Set(ledger.filter(x => x.type === 'pay' && !x.partial && !x.personal).map(x => x.key));
+  const stillDue = new Set(subs.filter(s => (s.value||0) > 0 || (s.count||0) > 0).map(s => key(s)));
+  const paid = new Set([...fullPaid].filter(k => !stillDue.has(k)));
+  stLocal.S = subs;
+  stLocal.by = new Map(subs.map(s => [key(s), s]));
+  stLocal.adv = new Map(advs.map(v => [v.key, v.balance]));
+  stLocal.paid = paid;
+  // مزامنة st العام
+  st.S = subs; st.by = stLocal.by; st.adv = stLocal.adv; st.paid = paid;
+}
 
 export async function renderSearch(el) {
   document.getElementById('back').hidden = true;
-  await refresh();
+  await loadData();
 
   el.innerHTML = `
     <div class="card">
@@ -48,43 +64,12 @@ export async function renderSearch(el) {
     <div id="sr" class="blist"></div>
   `;
 
-  const draw = () => {
-    const sr = el.querySelector('#sr');
-    if (mode === 'number') {
-      const sec = el.querySelector('#numSec').value.trim();
-      const blk = el.querySelector('#numBlk').value.trim();
-      const bld = el.querySelector('#numBld').value.trim();
-      const apt = el.querySelector('#numApt').value.trim();
-      if (!sec || !blk || !bld) { sr.innerHTML = ''; return; }
-      const rows = st.S.filter(s => s.sector === sec && s.blk === blk && s.bld === bld && (!apt || s.apt === apt));
-      if (!rows.length) { sr.innerHTML = '<div class="card empty">لا يوجد عملاء بهذا العنوان.</div>'; return; }
-      sr.innerHTML = `<div class="card"><h2>عملاء العمارة ${bld}${apt ? ' · شقة ' + apt : ''}</h2>
-        <div class="apt-list">` + rows.map(s => aptCard(s, true)).join('') + '</div></div>';
-      bindActions(sr, rows);
-      return;
-    }
+  const sr = el.querySelector('#sr');
 
-    const ws = fz(q).split(' ').filter(Boolean);
-    if (!ws.length) { sr.innerHTML = ''; return; }
-    const m = st.S.filter(s => !st.paid.has(key(s)) && (scope === 'all' || s.inRoute) && ws.every(w => fz(s.name || '').includes(w)));
-    if (!m.length) { sr.innerHTML = '<div class="card empty">لا نتائج.</div>'; return; }
-    
-    const g = {};
-    m.forEach(s => (g[`${s.sector}|${s.blk}|${s.bld}`] ??= []).push(s));
-    sr.innerHTML = '<div class="card"><h2>نتائج البحث (' + m.length + ' عميل)</h2>' +
-      Object.entries(g).map(([k, a]) => {
-        const [x, b, d] = k.split('|');
-        return `<div style="margin-bottom:1rem"><div class="bh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
-          <b style="color:var(--br)">عمارة ${d} · قطاع ${x} · بلوك ${b}</b>
-          <span class="mute">${a.length} شقة</span>
-        </div><div class="apt-list">` + a.map(s => aptCard(s, false)).join('') + '</div></div>';
-      }).join('') + '</div>';
-    bindActions(sr, m);
-  };
-
-  const aptCard = (s, showAddr) => {
+  // ===== بطاقة شقة (مطابقة للعمارة) =====
+  const aptCard = (s) => {
     const k = key(s);
-    const b = st.adv.get(k) || 0;
+    const b = stLocal.adv.get(k) || 0;
     const nameHtml = s.name ? esc(s.name) : '<em class="empty-name">بدون اسم</em>';
     const partial = (s.count || 0) > 1;
     return `<div class="apt-card" data-card="${k}">
@@ -94,7 +79,7 @@ export async function renderSearch(el) {
       </div>
       <div class="apt-bottom">
         <div class="apt-apt">${s.apt}</div>
-        <div class="apt-meta">${s.count} فاتورة${showAddr ? ' · عمارة ' + s.bld : ''}${b ? ' · مقدم ' + money(b) : ''}</div>
+        <div class="apt-meta">${s.count} فاتورة${b ? ' · مقدم ' + money(b) : ''}</div>
         <div class="apt-menu-wrap">
           <button class="apt-dots" data-m="${k}" type="button">⋮</button>
           <div class="apt-pop" data-pop="${k}" hidden>
@@ -107,80 +92,162 @@ export async function renderSearch(el) {
     </div>`;
   };
 
-  const bindActions = (container, rows) => {
-    container.querySelectorAll('[data-m]').forEach(btn => {
+  // ===== عرض مجموعة شقق (عمارة كاملة) مع تحديد الكل =====
+  const drawBuildingGroup = (rows, title) => {
+    const key_grp = 'grp-' + Math.random().toString(36).slice(2, 8);
+    const cards = rows.map(s => aptCard(s)).join('');
+    const allChecked = rows.every(s => st.sel.has(key(s)));
+    return `<div class="card" style="margin-bottom:.8rem" data-group="${key_grp}">
+      <div class="bh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+        <b style="color:var(--br)">${title}</b>
+        <label class="chk" style="display:flex;gap:.4rem;align-items:center;font-weight:700">
+          <input type="checkbox" class="group-all" data-group="${key_grp}" ${allChecked ? 'checked' : ''}> تحديد الكل
+        </label>
+      </div>
+      <div class="apt-list" data-group-list="${key_grp}">${cards}</div>
+    </div>`;
+  };
+
+  // ===== ربط الأحداث في النتائج =====
+  const bindResults = () => {
+    // checkboxes
+    sr.querySelectorAll('[data-k]').forEach(c => {
+      c.onchange = () => {
+        c.checked ? st.sel.add(c.dataset.k) : st.sel.delete(c.dataset.k);
+        updateGroupChecks();
+      };
+    });
+    // تحديد الكل لمجموعة
+    sr.querySelectorAll('.group-all').forEach(cb => {
+      cb.onchange = () => {
+        const grp = cb.dataset.group;
+        const list = sr.querySelector(`[data-group-list="${grp}"]`);
+        list.querySelectorAll('[data-k]').forEach(c => {
+          c.checked = cb.checked;
+          cb.checked ? st.sel.add(c.dataset.k) : st.sel.delete(c.dataset.k);
+        });
+      };
+    });
+    // قائمة ⋮
+    sr.querySelectorAll('[data-m]').forEach(btn => {
       btn.onclick = ev => {
         ev.stopPropagation();
-        container.querySelectorAll('[data-pop]').forEach(p => p.hidden = true);
-        const pop = container.querySelector(`[data-pop="${btn.dataset.m}"]`);
+        sr.querySelectorAll('[data-pop]').forEach(p => p.hidden = true);
+        const pop = sr.querySelector(`[data-pop="${btn.dataset.m}"]`);
         if (pop) pop.hidden = !pop.hidden;
       };
     });
-    document.addEventListener('click', () => { container.querySelectorAll('[data-pop]').forEach(p => p.hidden = true); });
-    
-    container.querySelectorAll('[data-act]').forEach(b => {
+    document.addEventListener('click', () => { sr.querySelectorAll('[data-pop]').forEach(p => p.hidden = true); });
+    // الإجراءات
+    sr.querySelectorAll('[data-act]').forEach(b => {
       b.onclick = async ev => {
         ev.stopPropagation();
-        const k = b.dataset.id, s = st.by.get(k);
+        const k = b.dataset.id, s = stLocal.by.get(k);
         const act = b.dataset.act;
-        if (act === 'read') {
+        if (act === 'read'){
           const qs = new URLSearchParams({
             n: s.name || '', s: s.sector, b: s.blk, d: s.bld, a: s.apt,
-            v: s.value, r: st.adv.get(k) || 0, q: due(s), c: s.count, m: st.cycle, u: st.who, k
+            v: s.value, r: stLocal.adv.get(k) || 0, q: due(s), c: s.count, m: st.cycle, u: st.who, k
           }).toString();
           openPage('reading.html', qs);
-          container.querySelectorAll('[data-pop]').forEach(p => p.hidden = true);
+          sr.querySelectorAll('[data-pop]').forEach(p => p.hidden = true);
         }
-        if (act === 'name') {
+        if (act === 'name'){
           const n = prompt('اسم العميل', s?.name || '');
-          if (n && n.trim()) {
-            await import('./names.js').then(m => m.saveManual(k, n.trim()));
-            await refresh();
-            container.querySelectorAll('[data-pop]').forEach(p => p.hidden = true);
+          if (n && n.trim()){
+            await saveManual(k, n.trim());
+            await loadData();
             draw();
           }
         }
-        if (act === 'partial') {
-          const { partialPay } = await import('./ledger.js');
+        if (act === 'partial'){
           const maxCount = s.count || 1;
           const count = +(prompt(`عدد الفواتير (الحد الأقصى ${maxCount})`) || 0);
           if (!(count > 0) || count > maxCount) { toast('عدد غير صحيح'); return; }
           const amount = +(prompt(`القيمة المسددة (الحد الأقصى ${money(s.value)})`) || 0);
           if (!(amount > 0) || amount > s.value) { toast('قيمة غير صحيحة'); return; }
-          if (count === maxCount || amount === s.value) {
+          if (count === maxCount || amount === s.value){
             if (!confirm('هذا سداد كلي. موافق؟')) return;
-            const { pay } = await import('./ledger.js');
             await pay(st.no, [s], st.adv);
           } else {
-            await partialPay(st.no, s, { count, amount }, st.adv);
+            await partialPay(st.no, s, {count, amount}, st.adv);
           }
-          await refresh();
-          toast('تم السداد');
+          await loadData();
           draw();
+          toast('تم السداد');
         }
       };
     });
-    
-    container.querySelectorAll('[data-p]').forEach(btn => {
+    // السداد الفردي
+    sr.querySelectorAll('[data-p]').forEach(btn => {
       btn.onclick = async ev => {
         ev.stopPropagation();
-        const k = btn.dataset.p, s = st.by.get(k), amt = due(s);
-        if (!amt) { toast('لا يوجد مبلغ مستحق'); return; }
+        const k = btn.dataset.p, s = stLocal.by.get(k), amt = due(s);
+        if (!amt){ toast('لا يوجد مبلغ مستحق'); return; }
         if (!confirm(`تأكيد سداد شقة ${s.apt} — ${s.name || 'بدون اسم'} بمبلغ ${money(amt)}؟`)) return;
-        const { pay } = await import('./ledger.js');
         await pay(st.no, [s], st.adv);
-        await refresh();
-        toast(`تم سداد شقة ${s.apt}`);
+        await loadData();
         draw();
+        toast(`تم سداد شقة ${s.apt}`);
       };
+    });
+    updateGroupChecks();
+  };
+
+  const updateGroupChecks = () => {
+    sr.querySelectorAll('[data-group-list]').forEach(list => {
+      const grp = list.dataset.groupList;
+      const cbs = list.querySelectorAll('[data-k]');
+      const all = cbs.length > 0 && [...cbs].every(c => c.checked);
+      const parent = sr.querySelector(`.group-all[data-group="${grp}"]`);
+      if (parent) parent.checked = all;
     });
   };
 
+  const draw = () => {
+    // بحث بالرقم
+    if (mode === 'number'){
+      const sec = el.querySelector('#numSec').value.trim();
+      const blk = el.querySelector('#numBlk').value.trim();
+      const bld = el.querySelector('#numBld').value.trim();
+      const apt = el.querySelector('#numApt').value.trim();
+      if (!sec || !blk || !bld){ sr.innerHTML = ''; return; }
+      const rows = stLocal.S.filter(s => !stLocal.paid.has(key(s)) && s.sector === sec && s.blk === blk && s.bld === bld && (!apt || s.apt === apt));
+      if (!rows.length){ sr.innerHTML = '<div class="card empty">لا يوجد عملاء بهذا العنوان.</div>'; return; }
+      sr.innerHTML = drawBuildingGroup(rows, `عمارة ${bld} · قطاع ${sec} · بلوك ${blk}`);
+      bindResults();
+      return;
+    }
+
+    // بحث بالاسم
+    const ws = fz(q).split(' ').filter(Boolean);
+    if (!ws.length){ sr.innerHTML = ''; return; }
+    const m = stLocal.S.filter(s => !stLocal.paid.has(key(s)) && (scope === 'all' || s.inRoute) && ws.every(w => fz(s.name || '').includes(w)));
+    if (!m.length){ sr.innerHTML = '<div class="card empty">لا نتائج.</div>'; return; }
+    
+    // تجميع حسب العمارة
+    const g = {};
+    m.forEach(s => (g[`${s.sector}|${s.blk}|${s.bld}`] ??= []).push(s));
+    
+    sr.innerHTML = `<div class="card" style="margin-bottom:.6rem"><b>نتائج البحث (${m.length} عميل)</b></div>` +
+      Object.entries(g).map(([k, a]) => {
+        const [x, b, d] = k.split('|');
+        return drawBuildingGroup(a.sort((p1,p2) => Number(p1.apt)-Number(p2.apt)), `عمارة ${d} · قطاع ${x} · بلوك ${b}`);
+      }).join('');
+    bindResults();
+  };
+
+  // مستمعات الإدخال
   el.querySelector('#modeName').onclick = () => { mode = 'name'; renderSearch(el); };
   el.querySelector('#modeNumber').onclick = () => { mode = 'number'; renderSearch(el); };
 
-  if (mode === 'name') {
-    el.querySelector('#q').oninput = e => { q = e.target.value; draw(); };
+  if (mode === 'name'){
+    const qInput = el.querySelector('#q');
+    // بحث فوري بدون debounce (البيانات محملة مسبقاً)
+    qInput.addEventListener('input', e => {
+      q = e.target.value;
+      draw();
+    });
     el.querySelectorAll('[name=sc]').forEach(r => r.onchange = () => { scope = r.value; draw(); });
   } else {
     ['numSec', 'numBlk', 'numBld', 'numApt'].forEach(id => {
@@ -188,10 +255,11 @@ export async function renderSearch(el) {
       inp.addEventListener('input', () => {
         const v = String(inp.value || '').replace(/\D/g, '').slice(0, 2);
         if (inp.value !== v) inp.value = v;
-        if (v.length === 2 && inp.dataset.next) {
+        if (v.length === 2 && inp.dataset.next){
           const n = el.querySelector('#' + inp.dataset.next);
           if (n) n.focus();
         }
+        draw();
       });
     });
     el.querySelector('#numGo').onclick = draw;
