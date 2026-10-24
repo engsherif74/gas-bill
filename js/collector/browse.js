@@ -265,20 +265,21 @@ function bind(el, a, v, again){
   };
 }
 
-/* ===== البحث المباشر (بدون renderHome) ===== */
 function initSearch(){
   const qEl = document.getElementById('q');
   if (!qEl || qEl._bound) return;
   qEl._bound = true;
   let timer = null;
   qEl.addEventListener('input', () => {
-    clearTimeout(timer);
+    // اظهر الحرف فوراً (بدون تأخير)
     const q = qEl.value.trim();
     const qwrap = document.getElementById('qwrap');
     const qres = document.getElementById('qres');
     const qn = document.getElementById('qn');
     if (q.length < 2) { qwrap.classList.add('hidden'); return; }
     qwrap.classList.remove('hidden');
+    // ارسم النتائج بعد انتهاء الكتابة (debounce 250ms)
+    clearTimeout(timer);
     timer = setTimeout(() => {
       const qnz = String(q).normalize('NFKC').replace(/[\u064B-\u065F\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').trim();
       const toks = qnz.split(' ').filter(Boolean);
@@ -287,8 +288,19 @@ function initSearch(){
       if(qres) {
         if(!matches.length) qres.innerHTML = '<p class="mute">لا يوجد عميل بهذا الاسم</p>';
         else {
-          qres.innerHTML = matches.slice(0, 30).map(s => {
+          // عرض الاسم فقط (بدون تجميع حسب العمارة)
+          const seen = new Set();
+          const uniq = [];
+          for (const s of matches){
+            const n = String(s.name||'').trim();
+            if (!n || seen.has(n)) continue;
+            seen.add(n);
+            uniq.push(s);
+            if (uniq.length >= 30) break;
+          }
+          qres.innerHTML = uniq.map(s => {
             const k = key(s);
+            const b = st.adv.get(k) || 0;
             return `<div class="apt-card" style="margin-bottom:.4rem" data-open="${k}">
               <div class="apt-name">${esc(s.name || 'بدون اسم')}</div>
               <div class="apt-meta">شقة ${s.apt} · عمارة ${s.bld} · قطاع ${s.sector} · بلوك ${s.blk}</div>
@@ -313,7 +325,7 @@ function initSearch(){
           });
         }
       }
-    }, 300);
+    }, 250);
   });
 }
 
@@ -358,21 +370,22 @@ export async function renderHome(el){
     <label class="field"><span>القطاع</span><select id="secIn" class="num2" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optSec}</select></label>
     <label class="field"><span>البلوك</span><select id="blkIn" class="num2" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optBlk}</select></label>
     <label class="field"><span>العمارة</span><select id="bldIn" class="num2" style="width:100%;height:48px;font-weight:800;text-align:center;font-size:1.1rem">${optBld}</select></label>
-  </div>
-  <p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p>
+  </div>`;
+
+  // ✅ العمارة المفتوحة تظهر مباشرة بعد المربعات
+  if (st.open && g[st.open]) {
+    const aa = g[st.open].sort((p,q) => srt(p.apt, q.apt));
+    const vv = aptsView(aa);
+    html += `<div class="card apts" style="margin-top:.8rem">${vv.html}</div>`;
+  }
+
+  html += `<p class="sum">${t.n} شقة · ${t.count} فاتورة · <b>${money(t.value)}</b> جنيه</p>
   <div class="blist">`;
 
   Object.keys(g).sort(srt).forEach(b => {
     const x = tot(g[b]);
-    const o = st.open === b;
     const cells = `<b>عمارة ${b}</b><span>${x.n} شقة</span><span>${x.count} فاتورة</span><strong>${money(x.value)}</strong>`;
-    html += `<div class="brow prow ${o?'open':''}" data-b="${b}" role="button" tabindex="0">${cells}</div>`;
-    if (o){
-      st.bld = b;
-      const aa = g[b].sort((p,q) => srt(p.apt, q.apt));
-      const vv = aptsView(aa);
-      html += `<div class="card apts">${vv.html}</div>`;
-    }
+    html += `<div class="brow prow" data-b="${b}" role="button" tabindex="0">${cells}</div>`;
   });
   el.innerHTML = html + '</div>';
 
@@ -413,6 +426,7 @@ export async function renderHome(el){
     };
   });
 
+  // ربط الأحداث للعمارة المفتوحة
   if (st.open && g[st.open]) {
     const aa = g[st.open].sort((p,q) => srt(p.apt, q.apt));
     const vv = aptsView(aa);
