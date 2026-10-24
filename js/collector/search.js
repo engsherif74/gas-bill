@@ -5,14 +5,8 @@ import {openPage} from './buttons.js';
 import {saveManual} from './names.js';
 import {all, get} from '../core/db.js';
 
-let q = '', scope = 'all', mode = 'name';
+let q = '';
 let stLocal = { S: [], adv: new Map(), paid: new Set(), by: new Map() };
-
-const fz = s => String(s || '').normalize('NFKC')
-  .replace(/[\u064B-\u065F\u0640]/g, '')
-  .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي')
-  .replace(/[خج]/g, 'ح').replace(/ذ/g, 'د')
-  .replace(/\s+/g, ' ').trim();
 
 const due = s => Math.max(0, (s.value || 0) - (stLocal.adv.get(key(s)) || 0));
 
@@ -36,91 +30,152 @@ export async function renderSearch(el) {
 
   el.innerHTML = `
     <div class="card">
-      <div class="tools" style="margin-bottom:1rem">
-        <button class="btn ${mode === 'name' ? '' : 'ghost'} sm" id="modeName">بحث بالاسم</button>
-        <button class="btn ${mode === 'number' ? '' : 'ghost'} sm" id="modeNumber">بحث برقم المشترك</button>
-      </div>
-      <div id="searchName" ${mode !== 'name' ? 'hidden' : ''}>
-        <input id="q" class="srch" placeholder="اكتب اسم العميل…" value="${esc(q)}" autocomplete="off" style="color:var(--ink);background:var(--s1);width:100%;padding:.8rem;border:1.5px solid var(--line);border-radius:12px;font-size:1rem">
-        <div class="tools" style="margin-top:.5rem">
-          <label class="chk"><input type="radio" name="sc" value="route" ${scope === 'route' ? 'checked' : ''}> خط سيري فقط</label>
-          <label class="chk"><input type="radio" name="sc" value="all" ${scope === 'all' ? 'checked' : ''}> الملف كاملاً</label>
-        </div>
-      </div>
-      <div id="searchNumber" ${mode !== 'number' ? 'hidden' : ''}>
-        <div class="pick">
-          <label class="field"><span>القطاع</span><input id="numSec" class="num2" type="text" inputmode="numeric" maxlength="2" placeholder="—" data-next="numBlk"></label>
-          <label class="field"><span>البلوك</span><input id="numBlk" class="num2" type="text" inputmode="numeric" maxlength="2" placeholder="—" data-next="numBld"></label>
-          <label class="field"><span>العمارة</span><input id="numBld" class="num2" type="text" inputmode="numeric" maxlength="2" placeholder="—" data-next="numApt"></label>
-          <label class="field"><span>الشقة</span><input id="numApt" class="num2" type="text" inputmode="numeric" maxlength="2" placeholder="—" data-next=""></label>
-        </div>
-        <div class="actions" style="margin-top:.5rem">
-          <button class="btn sm" id="numGo">بحث</button>
-        </div>
-      </div>
+      <input id="q" class="srch" placeholder="اكتب اسم العميل…" value="${esc(q)}" autocomplete="off" style="color:var(--ink);background:var(--s1);width:100%;padding:.8rem;border:1.5px solid var(--line);border-radius:12px;font-size:1rem">
     </div>
-    <div id="sr" class="blist"></div>
+    <div id="sr" class="blist" style="margin-top:.8rem"></div>
   `;
 
   const sr = el.querySelector('#sr');
 
-  const aptCard = (s) => {
-    const k = key(s);
-    const b = stLocal.adv.get(k) || 0;
-    const nameHtml = s.name ? esc(s.name) : '<em class="empty-name">بدون اسم</em>';
-    const partial = (s.count || 0) > 1;
-    return `<div class="apt-card" data-card="${k}">
-      <div class="apt-top">
-        <div class="apt-name">${nameHtml}</div>
-        <button class="apt-val" data-p="${k}" type="button">${money(due(s))}</button>
-      </div>
-      <div class="apt-bottom">
-        <div class="apt-apt">${s.apt}</div>
-        <div class="apt-meta">${s.count} فاتورة${b ? ' · مقدم ' + money(b) : ''}</div>
-        <div class="apt-menu-wrap">
-          <button class="apt-dots" data-m="${k}" type="button">⋮</button>
-          <div class="apt-pop" data-pop="${k}" hidden>
-            <button data-act="read" data-id="${k}" type="button">قراءة عداد</button>
-            ${partial ? `<button data-act="partial" data-id="${k}" type="button">سداد جزئي</button>` : ''}
-            ${!s.name ? `<button data-act="name" data-id="${k}" type="button">تعديل الاسم</button>` : ''}
+  const draw = () => {
+    const query = q.trim();
+    if (query.length < 1){ sr.innerHTML = ''; return; }
+    
+    // بحث عادي: الأسماء التي تحتوي على النص (تطابق جزئي)
+    const matches = stLocal.S.filter(s => 
+      !stLocal.paid.has(key(s)) && 
+      String(s.name || '').includes(query)
+    );
+    
+    if (!matches.length){ 
+      sr.innerHTML = '<div class="card empty">لا نتائج.</div>'; 
+      return; 
+    }
+    
+    // إزالة التكرار: إذا كان الاسم موجوداً في أكثر من شقة في نفس العمارة، يظهر مرة واحدة
+    const seen = new Set();
+    const uniq = [];
+    for (const s of matches){
+      const grpKey = `${s.sector}|${s.blk}|${s.bld}`;
+      const name = String(s.name || '').trim();
+      if (!name || seen.has(grpKey + '|' + name)) continue;
+      seen.add(grpKey + '|' + name);
+      uniq.push(s);
+      if (uniq.length >= 50) break;
+    }
+    
+    sr.innerHTML = uniq.map(s => {
+      const k = key(s);
+      const b = stLocal.adv.get(k) || 0;
+      return `<div class="card" style="margin-bottom:.6rem;cursor:pointer" data-open="${k}">
+        <div class="apt-top">
+          <div class="apt-name">${esc(s.name || 'بدون اسم')}</div>
+          <div class="apt-val">${money(due(s))}</div>
+        </div>
+        <div class="apt-bottom">
+          <div class="apt-apt">${s.apt}</div>
+          <div class="apt-meta">عمارة ${s.bld} · قطاع ${s.sector} · بلوك ${s.blk}${b ? ' · مقدم ' + money(b) : ''}</div>
+        </div>
+      </div>`;
+    }).join('');
+    
+    // عند الضغط على الاسم → فتح العمارة كاملة
+    sr.querySelectorAll('[data-open]').forEach(card => {
+      card.onclick = () => openBuilding(card.dataset.open);
+    });
+  };
+
+  // فتح العمارة كاملة داخل صفحة البحث
+  const openBuilding = (k) => {
+    const s = stLocal.by.get(k);
+    if (!s) return;
+    
+    const bldRows = stLocal.S.filter(x => 
+      !stLocal.paid.has(key(x)) && 
+      x.sector === s.sector && x.blk === s.blk && x.bld === s.bld
+    ).sort((p1, p2) => Number(p1.apt) - Number(p2.apt));
+    
+    const allTot = bldRows.reduce((t, x) => ({ 
+      n: t.n + 1, 
+      count: t.count + (x.count||0), 
+      value: t.value + due(x) 
+    }), {n:0, count:0, value:0});
+    
+    const cards = bldRows.map(x => {
+      const k2 = key(x);
+      const b = stLocal.adv.get(k2) || 0;
+      const selected = st.sel.has(k2);
+      const partial = (x.count || 0) > 1;
+      return `<div class="apt-card ${selected?'on':''}" data-card="${k2}">
+        <div class="apt-top">
+          <div class="apt-name" data-nm="${k2}">${esc(x.name || 'بدون اسم')}</div>
+          <button class="apt-val" data-p="${k2}" type="button">${money(due(x))}</button>
+        </div>
+        <div class="apt-bottom">
+          <label class="apt-chk"><input type="checkbox" data-k="${k2}" ${selected?'checked':''}></label>
+          <div class="apt-apt">${x.apt}</div>
+          <div class="apt-meta">${x.count} فاتورة${b ? ' · مقدم ' + money(b) : ''}</div>
+          <div class="apt-menu-wrap">
+            <button class="apt-dots" data-m="${k2}" type="button">⋮</button>
+            <div class="apt-pop" data-pop="${k2}" hidden>
+              <button data-act="read" data-id="${k2}" type="button">قراءة عداد</button>
+              ${partial ? `<button data-act="partial" data-id="${k2}" type="button">سداد جزئي</button>` : ''}
+              ${!x.name ? `<button data-act="name" data-id="${k2}" type="button">تعديل الاسم</button>` : ''}
+            </div>
           </div>
         </div>
+      </div>`;
+    }).join('');
+    
+    sr.innerHTML = `
+      <div class="card" style="margin-bottom:.6rem">
+        <button class="btn ghost sm" id="backToSearch">→ رجوع للبحث</button>
       </div>
-    </div>`;
-  };
-
-  const drawBuildingGroup = (rows, title) => {
-    const key_grp = 'grp-' + Math.random().toString(36).slice(2, 8);
-    const cards = rows.map(s => aptCard(s)).join('');
-    const allChecked = rows.every(s => st.sel.has(key(s)));
-    return `<div class="card" style="margin-bottom:.8rem" data-group="${key_grp}">
-      <div class="bh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
-        <b style="color:var(--br)">${title}</b>
-        <label class="chk" style="display:flex;gap:.4rem;align-items:center;font-weight:700">
-          <input type="checkbox" class="group-all" data-group="${key_grp}" ${allChecked ? 'checked' : ''}> تحديد الكل
-        </label>
+      <div class="card">
+        <div class="bh" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+          <h2 style="margin:0;font-size:1rem">عمارة ${s.bld} <span style="color:var(--br);font-weight:700">— ${money(allTot.value)} ج</span></h2>
+          <label class="chk" style="display:flex;gap:.4rem;align-items:center;font-weight:700">
+            <input type="checkbox" id="all" ${bldRows.every(x=>st.sel.has(key(x)))?'checked':''}> تحديد الكل
+          </label>
+        </div>
+        <div class="apt-list">${cards}</div>
+        <div class="bar-inline" id="barInline"></div>
       </div>
-      <div class="apt-list" data-group-list="${key_grp}">${cards}</div>
-    </div>`;
-  };
-
-  const bindResults = () => {
+    `;
+    
+    sr.querySelector('#backToSearch').onclick = () => draw();
+    
+    // زر تحديد الكل
+    sr.querySelector('#all').onchange = (e) => {
+      bldRows.forEach(x => {
+        const k2 = key(x);
+        if (e.target.checked) st.sel.add(k2);
+        else st.sel.delete(k2);
+      });
+      updateBar();
+      sr.querySelectorAll('[data-k]').forEach(c => c.checked = e.target.checked);
+    };
+    
+    // checkboxes
     sr.querySelectorAll('[data-k]').forEach(c => {
       c.onchange = () => {
         c.checked ? st.sel.add(c.dataset.k) : st.sel.delete(c.dataset.k);
-        updateGroupChecks();
+        updateBar();
       };
     });
-    sr.querySelectorAll('.group-all').forEach(cb => {
-      cb.onchange = () => {
-        const grp = cb.dataset.group;
-        const list = sr.querySelector(`[data-group-list="${grp}"]`);
-        list.querySelectorAll('[data-k]').forEach(c => {
-          c.checked = cb.checked;
-          cb.checked ? st.sel.add(c.dataset.k) : st.sel.delete(c.dataset.k);
-        });
+    
+    // الاسم = تحديد
+    sr.querySelectorAll('[data-nm]').forEach(nm => {
+      nm.onclick = () => {
+        const k2 = nm.dataset.nm;
+        if (st.sel.has(k2)) st.sel.delete(k2); else st.sel.add(k2);
+        const cb = sr.querySelector(`[data-k="${k2}"]`);
+        if (cb) cb.checked = st.sel.has(k2);
+        updateBar();
       };
     });
+    
+    // قائمة ⋮
     sr.querySelectorAll('[data-m]').forEach(btn => {
       btn.onclick = ev => {
         ev.stopPropagation();
@@ -130,159 +185,104 @@ export async function renderSearch(el) {
       };
     });
     document.addEventListener('click', () => { sr.querySelectorAll('[data-pop]').forEach(p => p.hidden = true); });
+    
+    // إجراءات
     sr.querySelectorAll('[data-act]').forEach(b => {
       b.onclick = async ev => {
         ev.stopPropagation();
-        const k = b.dataset.id, s = stLocal.by.get(k);
+        const k2 = b.dataset.id, sub = stLocal.by.get(k2);
         const act = b.dataset.act;
         if (act === 'read'){
           const qs = new URLSearchParams({
-            n: s.name || '', s: s.sector, b: s.blk, d: s.bld, a: s.apt,
-            v: s.value, r: stLocal.adv.get(k) || 0, q: due(s), c: s.count, m: st.cycle, u: st.who, k
+            n: sub.name || '', s: sub.sector, b: sub.blk, d: sub.bld, a: sub.apt,
+            v: sub.value, r: stLocal.adv.get(k2) || 0, q: due(sub), c: sub.count, m: st.cycle, u: st.who, k: k2
           }).toString();
           openPage('reading.html', qs);
           sr.querySelectorAll('[data-pop]').forEach(p => p.hidden = true);
         }
         if (act === 'name'){
-          const n = prompt('اسم العميل', s?.name || '');
+          const n = prompt('اسم العميل', sub?.name || '');
           if (n && n.trim()){
-            await saveManual(k, n.trim());
+            await saveManual(k2, n.trim());
             await loadData();
-            draw();
+            openBuilding(k);
           }
         }
         if (act === 'partial'){
-          const maxCount = s.count || 1;
+          const maxCount = sub.count || 1;
           const count = +(prompt(`عدد الفواتير (الحد الأقصى ${maxCount})`) || 0);
           if (!(count > 0) || count > maxCount) { toast('عدد غير صحيح'); return; }
-          const amount = +(prompt(`القيمة المسددة (الحد الأقصى ${money(s.value)})`) || 0);
-          if (!(amount > 0) || amount > s.value) { toast('قيمة غير صحيحة'); return; }
-          if (count === maxCount || amount === s.value){
+          const amount = +(prompt(`القيمة المسددة (الحد الأقصى ${money(sub.value)})`) || 0);
+          if (!(amount > 0) || amount > sub.value) { toast('قيمة غير صحيحة'); return; }
+          if (count === maxCount || amount === sub.value){
             if (!confirm('هذا سداد كلي. موافق؟')) return;
-            await pay(st.no, [s], st.adv);
+            await pay(st.no, [sub], st.adv);
           } else {
-            await partialPay(st.no, s, {count, amount}, st.adv);
+            await partialPay(st.no, sub, {count, amount}, st.adv);
           }
           await loadData();
-          draw();
+          openBuilding(k);
           toast('تم السداد');
         }
       };
     });
+    
+    // السداد الفردي
     sr.querySelectorAll('[data-p]').forEach(btn => {
       btn.onclick = async ev => {
         ev.stopPropagation();
-        const k = btn.dataset.p, s = stLocal.by.get(k), amt = due(s);
+        const k2 = btn.dataset.p, sub = stLocal.by.get(k2), amt = due(sub);
         if (!amt){ toast('لا يوجد مبلغ مستحق'); return; }
-        if (!confirm(`تأكيد سداد شقة ${s.apt} — ${s.name || 'بدون اسم'} بمبلغ ${money(amt)}؟`)) return;
-        await pay(st.no, [s], st.adv);
+        if (!confirm(`تأكيد سداد شقة ${sub.apt} — ${sub.name || 'بدون اسم'} بمبلغ ${money(amt)}؟`)) return;
+        await pay(st.no, [sub], st.adv);
         await loadData();
-        draw();
-        toast(`تم سداد شقة ${s.apt}`);
+        openBuilding(k);
+        toast(`تم سداد شقة ${sub.apt}`);
       };
     });
-    updateGroupChecks();
-  };
-
-  const updateGroupChecks = () => {
-    sr.querySelectorAll('[data-group-list]').forEach(list => {
-      const grp = list.dataset.groupList;
-      const cbs = list.querySelectorAll('[data-k]');
-      const all = cbs.length > 0 && [...cbs].every(c => c.checked);
-      const parent = sr.querySelector(`.group-all[data-group="${grp}"]`);
-      if (parent) parent.checked = all;
-    });
-  };
-
-  const draw = () => {
-    if (mode === 'number'){
-      const sec = el.querySelector('#numSec').value.trim();
-      const blk = el.querySelector('#numBlk').value.trim();
-      const bld = el.querySelector('#numBld').value.trim();
-      const apt = el.querySelector('#numApt').value.trim();
-      if (!sec || !blk || !bld){ sr.innerHTML = ''; return; }
-      const rows = stLocal.S.filter(s => !stLocal.paid.has(key(s)) && s.sector === sec && s.blk === blk && s.bld === bld && (!apt || s.apt === apt));
-      if (!rows.length){ sr.innerHTML = '<div class="card empty">لا يوجد عملاء بهذا العنوان.</div>'; return; }
-      sr.innerHTML = drawBuildingGroup(rows, `عمارة ${bld} · قطاع ${sec} · بلوك ${blk}`);
-      bindResults();
-      return;
-    }
-
-    const ws = fz(q).split(' ').filter(Boolean);
-    if (!ws.length){ sr.innerHTML = ''; return; }
-    const m = stLocal.S.filter(s => !stLocal.paid.has(key(s)) && (scope === 'all' || s.inRoute) && ws.every(w => fz(s.name || '').includes(w)));
-    if (!m.length){ sr.innerHTML = '<div class="card empty">لا نتائج.</div>'; return; }
     
-    // إزالة التكرار حسب الاسم
-    const seen = new Set();
-    const uniq = [];
-    for (const s of m){
-      const n = String(s.name || '').trim();
-      if (!n || seen.has(n)) continue;
-      seen.add(n);
-      uniq.push(s);
-      if (uniq.length >= 50) break;
-    }
-    
-    sr.innerHTML = `<div class="card" style="margin-bottom:.6rem"><b>نتائج البحث (${uniq.length} اسم)</b></div>` +
-      uniq.map(s => {
-        const k = key(s);
-        const b = stLocal.adv.get(k) || 0;
-        return `<div class="card" style="margin-bottom:.6rem" data-open="${k}">
-          <div class="apt-top">
-            <div class="apt-name" style="cursor:pointer">${esc(s.name || 'بدون اسم')}</div>
-            <div class="apt-val">${money(due(s))}</div>
-          </div>
-          <div class="apt-bottom">
-            <div class="apt-apt">${s.apt}</div>
-            <div class="apt-meta">عمارة ${s.bld} · قطاع ${s.sector} · بلوك ${s.blk}${b ? ' · مقدم ' + money(b) : ''}</div>
-          </div>
-        </div>`;
-      }).join('');
-    
-    sr.querySelectorAll('[data-open]').forEach(card => {
-      card.onclick = () => {
-        const k = card.dataset.open;
-        const s = stLocal.by.get(k);
-        if (s){
-          const bldRows = stLocal.S.filter(x => !stLocal.paid.has(key(x)) && x.sector === s.sector && x.blk === s.blk && x.bld === s.bld);
-          sr.innerHTML = `<div class="card" style="margin-bottom:.6rem"><button class="btn ghost sm" id="backToSearch">→ رجوع للبحث</button></div>` +
-            drawBuildingGroup(bldRows.sort((p1,p2) => Number(p1.apt)-Number(p2.apt)), `عمارة ${s.bld} · قطاع ${s.sector} · بلوك ${s.blk}`);
-          sr.querySelector('#backToSearch').onclick = () => draw();
-          bindResults();
-        }
+    const updateBar = () => {
+      const barEl = sr.querySelector('#barInline');
+      if (!barEl) return;
+      const selRows = bldRows.filter(x => st.sel.has(key(x)));
+      const selCount = selRows.length;
+      const selInvoices = selRows.reduce((t, x) => t + (x.count||0), 0);
+      const selValue = selRows.reduce((t, x) => t + due(x), 0);
+      const remaining = allTot.value - selValue;
+      const has = selCount > 0;
+      
+      barEl.innerHTML = `<div class="bar-grid">
+        <div><small>إجمالي العمارة</small><b>${money(allTot.value)}</b></div>
+        <div class="sel"><small>المحدد (${selCount} شقة · ${selInvoices} فاتورة)</small><b>${has ? money(selValue) : '—'}</b></div>
+        <div class="rem"><small>المتبقي بعد السداد</small><b>${money(remaining)}</b></div>
+        <button class="btn" id="paySel" ${has?'':'disabled'} type="button">
+          ${has ? `سداد (${money(selValue)})` : 'سداد'}
+        </button>
+      </div>`;
+      
+      const payBtn = barEl.querySelector('#paySel');
+      if (payBtn) payBtn.onclick = async () => {
+        if (!selRows.length) return;
+        if (!confirm(`تأكيد سداد ${selRows.length} شقة بمبلغ ${money(selValue)} جنيه؟`)) return;
+        await pay(st.no, selRows, st.adv);
+        st.sel.clear();
+        await loadData();
+        openBuilding(k);
+        toast(`تم سداد ${selRows.length} شقة`);
       };
-    });
+    };
+    
+    updateBar();
   };
 
-  el.querySelector('#modeName').onclick = () => { mode = 'name'; renderSearch(el); };
-  el.querySelector('#modeNumber').onclick = () => { mode = 'number'; renderSearch(el); };
-
-  if (mode === 'name'){
-    const qInput = el.querySelector('#q');
-    let drawTimer = null;
-    qInput.addEventListener('input', e => {
-      q = e.target.value;
-      clearTimeout(drawTimer);
-      drawTimer = setTimeout(draw, 250);
-    });
-    el.querySelectorAll('[name=sc]').forEach(r => r.onchange = () => { scope = r.value; draw(); });
-  } else {
-    ['numSec', 'numBlk', 'numBld', 'numApt'].forEach(id => {
-      const inp = el.querySelector('#' + id);
-      inp.addEventListener('input', () => {
-        const v = String(inp.value || '').replace(/\D/g, '').slice(0, 2);
-        if (inp.value !== v) inp.value = v;
-        if (v.length === 2 && inp.dataset.next){
-          const n = el.querySelector('#' + inp.dataset.next);
-          if (n) n.focus();
-        }
-        clearTimeout(drawTimer);
-        drawTimer = setTimeout(draw, 200);
-      });
-    });
-    el.querySelector('#numGo').onclick = draw;
-  }
-
+  // البحث العادي: يحدث عند الكتابة
+  const qEl = el.querySelector('#q');
+  let timer = null;
+  qEl.addEventListener('input', (e) => {
+    q = e.target.value;
+    clearTimeout(timer);
+    timer = setTimeout(draw, 150);
+  });
+  
   draw();
 }
