@@ -16,7 +16,6 @@ const fz = s => String(s || '').normalize('NFKC')
 
 const due = s => Math.max(0, (s.value || 0) - (stLocal.adv.get(key(s)) || 0));
 
-// تحميل البيانات مرة واحدة فقط عند فتح الصفحة
 async function loadData(){
   const subs = await all('subscribers');
   const advs = await all('advance');
@@ -28,7 +27,6 @@ async function loadData(){
   stLocal.by = new Map(subs.map(s => [key(s), s]));
   stLocal.adv = new Map(advs.map(v => [v.key, v.balance]));
   stLocal.paid = paid;
-  // مزامنة st العام
   st.S = subs; st.by = stLocal.by; st.adv = stLocal.adv; st.paid = paid;
 }
 
@@ -66,7 +64,6 @@ export async function renderSearch(el) {
 
   const sr = el.querySelector('#sr');
 
-  // ===== بطاقة شقة (مطابقة للعمارة) =====
   const aptCard = (s) => {
     const k = key(s);
     const b = stLocal.adv.get(k) || 0;
@@ -92,7 +89,6 @@ export async function renderSearch(el) {
     </div>`;
   };
 
-  // ===== عرض مجموعة شقق (عمارة كاملة) مع تحديد الكل =====
   const drawBuildingGroup = (rows, title) => {
     const key_grp = 'grp-' + Math.random().toString(36).slice(2, 8);
     const cards = rows.map(s => aptCard(s)).join('');
@@ -108,16 +104,13 @@ export async function renderSearch(el) {
     </div>`;
   };
 
-  // ===== ربط الأحداث في النتائج =====
   const bindResults = () => {
-    // checkboxes
     sr.querySelectorAll('[data-k]').forEach(c => {
       c.onchange = () => {
         c.checked ? st.sel.add(c.dataset.k) : st.sel.delete(c.dataset.k);
         updateGroupChecks();
       };
     });
-    // تحديد الكل لمجموعة
     sr.querySelectorAll('.group-all').forEach(cb => {
       cb.onchange = () => {
         const grp = cb.dataset.group;
@@ -128,7 +121,6 @@ export async function renderSearch(el) {
         });
       };
     });
-    // قائمة ⋮
     sr.querySelectorAll('[data-m]').forEach(btn => {
       btn.onclick = ev => {
         ev.stopPropagation();
@@ -138,7 +130,6 @@ export async function renderSearch(el) {
       };
     });
     document.addEventListener('click', () => { sr.querySelectorAll('[data-pop]').forEach(p => p.hidden = true); });
-    // الإجراءات
     sr.querySelectorAll('[data-act]').forEach(b => {
       b.onclick = async ev => {
         ev.stopPropagation();
@@ -178,7 +169,6 @@ export async function renderSearch(el) {
         }
       };
     });
-    // السداد الفردي
     sr.querySelectorAll('[data-p]').forEach(btn => {
       btn.onclick = async ev => {
         ev.stopPropagation();
@@ -205,7 +195,6 @@ export async function renderSearch(el) {
   };
 
   const draw = () => {
-    // بحث بالرقم
     if (mode === 'number'){
       const sec = el.querySelector('#numSec').value.trim();
       const blk = el.querySelector('#numBlk').value.trim();
@@ -219,34 +208,63 @@ export async function renderSearch(el) {
       return;
     }
 
-    // بحث بالاسم
     const ws = fz(q).split(' ').filter(Boolean);
     if (!ws.length){ sr.innerHTML = ''; return; }
     const m = stLocal.S.filter(s => !stLocal.paid.has(key(s)) && (scope === 'all' || s.inRoute) && ws.every(w => fz(s.name || '').includes(w)));
     if (!m.length){ sr.innerHTML = '<div class="card empty">لا نتائج.</div>'; return; }
     
-    // تجميع حسب العمارة
-    const g = {};
-    m.forEach(s => (g[`${s.sector}|${s.blk}|${s.bld}`] ??= []).push(s));
+    // إزالة التكرار حسب الاسم
+    const seen = new Set();
+    const uniq = [];
+    for (const s of m){
+      const n = String(s.name || '').trim();
+      if (!n || seen.has(n)) continue;
+      seen.add(n);
+      uniq.push(s);
+      if (uniq.length >= 50) break;
+    }
     
-    sr.innerHTML = `<div class="card" style="margin-bottom:.6rem"><b>نتائج البحث (${m.length} عميل)</b></div>` +
-      Object.entries(g).map(([k, a]) => {
-        const [x, b, d] = k.split('|');
-        return drawBuildingGroup(a.sort((p1,p2) => Number(p1.apt)-Number(p2.apt)), `عمارة ${d} · قطاع ${x} · بلوك ${b}`);
+    sr.innerHTML = `<div class="card" style="margin-bottom:.6rem"><b>نتائج البحث (${uniq.length} اسم)</b></div>` +
+      uniq.map(s => {
+        const k = key(s);
+        const b = stLocal.adv.get(k) || 0;
+        return `<div class="card" style="margin-bottom:.6rem" data-open="${k}">
+          <div class="apt-top">
+            <div class="apt-name" style="cursor:pointer">${esc(s.name || 'بدون اسم')}</div>
+            <div class="apt-val">${money(due(s))}</div>
+          </div>
+          <div class="apt-bottom">
+            <div class="apt-apt">${s.apt}</div>
+            <div class="apt-meta">عمارة ${s.bld} · قطاع ${s.sector} · بلوك ${s.blk}${b ? ' · مقدم ' + money(b) : ''}</div>
+          </div>
+        </div>`;
       }).join('');
-    bindResults();
+    
+    sr.querySelectorAll('[data-open]').forEach(card => {
+      card.onclick = () => {
+        const k = card.dataset.open;
+        const s = stLocal.by.get(k);
+        if (s){
+          const bldRows = stLocal.S.filter(x => !stLocal.paid.has(key(x)) && x.sector === s.sector && x.blk === s.blk && x.bld === s.bld);
+          sr.innerHTML = `<div class="card" style="margin-bottom:.6rem"><button class="btn ghost sm" id="backToSearch">→ رجوع للبحث</button></div>` +
+            drawBuildingGroup(bldRows.sort((p1,p2) => Number(p1.apt)-Number(p2.apt)), `عمارة ${s.bld} · قطاع ${s.sector} · بلوك ${s.blk}`);
+          sr.querySelector('#backToSearch').onclick = () => draw();
+          bindResults();
+        }
+      };
+    });
   };
 
-  // مستمعات الإدخال
   el.querySelector('#modeName').onclick = () => { mode = 'name'; renderSearch(el); };
   el.querySelector('#modeNumber').onclick = () => { mode = 'number'; renderSearch(el); };
 
   if (mode === 'name'){
     const qInput = el.querySelector('#q');
-    // بحث فوري بدون debounce (البيانات محملة مسبقاً)
+    let drawTimer = null;
     qInput.addEventListener('input', e => {
       q = e.target.value;
-      draw();
+      clearTimeout(drawTimer);
+      drawTimer = setTimeout(draw, 250);
     });
     el.querySelectorAll('[name=sc]').forEach(r => r.onchange = () => { scope = r.value; draw(); });
   } else {
@@ -259,7 +277,8 @@ export async function renderSearch(el) {
           const n = el.querySelector('#' + inp.dataset.next);
           if (n) n.focus();
         }
-        draw();
+        clearTimeout(drawTimer);
+        drawTimer = setTimeout(draw, 200);
       });
     });
     el.querySelector('#numGo').onclick = draw;
